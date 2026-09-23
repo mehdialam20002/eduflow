@@ -164,3 +164,7 @@ body.only-cover > *:not(.cover) { display: none; }
 /* ---------- Doc control tables ---------- */
 table.kv th { width: 42mm; background: var(--soft); color: var(--ink); border-color: var(--line); }
 .notice { font-size: 8.6pt; color: #4b5563; border: 0.25mm solid var(--line); border-radius: 1.5mm; padding: 3mm 4mm; background: var(--softer); margin-top: 5mm; }
+
+/* Keep a bold caption line with the figure, wireframe, table or code block it introduces. */
+p:has(+ .diagram), p:has(+ pre.wire), p:has(+ table), p:has(+ pre.keep), p:has(+ blockquote) { break-after: avoid; }
+.diagram { break-before: avoid; }

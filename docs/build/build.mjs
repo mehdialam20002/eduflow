@@ -285,7 +285,7 @@ async function renderPdf(docKey, built) {
 
 const arg = process.argv[2] || 'all';
 const htmlOnly = process.argv.includes('--html-only');
-const docs = arg === 'all' ? ['brd', 'prd', 'blueprint'] : [arg];
+const docs = arg === 'all' ? ['brd', 'prd', 'blueprint', 'costguide'] : [arg];
 let failed = 0;
 for (const d of docs) {
   if (!fs.existsSync(path.join(SRC, d, '_meta.json'))) { console.error(`skip ${d}: no _meta.json`); continue; }
