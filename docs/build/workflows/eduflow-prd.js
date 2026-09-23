@@ -8,13 +8,13 @@ export const meta = {
 }
 
 const ROOT = 'E:/mysaasschool/docs'
-const DIR = `${ROOT}/src/prd`
+const DIR = `${ROOT}/prd`
 const files = args.files
 const workers = args.workers || 4
 const needPerms = (f) => /^(07|1\d|2\d|3\d|4[0-3])-/.test(f)
 
-const permsPromise = args.skipPermissions ? Promise.resolve('skipped') : agent(`You are the security architect for EduFlow. Read ${ROOT}/src/_canon.md (section Roles and the module list) and ${ROOT}/src/_api/_permission-keys.txt — the complete list of 269 permission keys with their meaning and how many endpoints use each (extracted mechanically from the API registry; if a meaning is unclear, Grep the key in ${ROOT}/src/_api/*.md to see the endpoints that use it).
-Write ${ROOT}/src/_permissions.md with:
+const permsPromise = args.skipPermissions ? Promise.resolve('skipped') : agent(`You are the security architect for EduFlow. Read ${ROOT}/canon.md (section Roles and the module list) and ${ROOT}/api/_permission-keys.txt — the complete list of 269 permission keys with their meaning and how many endpoints use each (extracted mechanically from the API registry; if a meaning is unclear, Grep the key in ${ROOT}/api/*.md to see the endpoints that use it).
+Write ${ROOT}/permissions.md with:
 1. "# EduFlow Permission Registry" and a short explanation of the model in simple words (roles, custom roles, the scope words Own and Campus, how the API enforces permissions and ownership, how SUPER_ADMIN reaches tenant data only through audited impersonation).
 2. One section per permission prefix ("## <prefix> — <Module name>", in canon module order, then users, roles, billing, platform, files, imports, audit, parentportal, studentportal) with a table: | Permission | Meaning | SUPER_ADMIN | ORG_ADMIN | PRINCIPAL | TEACHER | ACCOUNTANT | PARENT | STUDENT | using exactly the cell words Yes, No, Own, Campus, View. EVERY one of the 269 keys must appear exactly once. Apply least privilege and real school logic: Teacher acts only on own batches and subjects (Own); Accountant handles finance for assigned campuses (Campus) and sees students read-only; Principal runs academics and approvals for assigned campuses (Campus) and sees finance summaries (View); ORG_ADMIN has Yes on everything inside the organization; PARENT and STUDENT have No everywhere except parentportal.access / studentportal.access and self endpoints; platform.* is SUPER_ADMIN only; money approvals respect separation of duties (the creator of a refund or write-off cannot be the approver — note this under the table).
 3. "## Module summary matrix": 34 modules x 7 roles with one overall cell word per module.
@@ -24,14 +24,14 @@ Return: number of keys written and any key whose meaning you had to guess.`, { l
 
 const prompt = (f) => `You are a principal product manager and solution architect writing ONE chapter of the EduFlow Product Requirements Document (PRD).
 FIRST read these files completely:
-- ${ROOT}/src/_canon.md  (fixed facts, conventions for database and API, roles, module codes — never contradict it)
-- ${ROOT}/src/_style-guide.md  (easy-language voice, strict Markdown rules for the PDF builder, and the mandatory module chapter template)
-- ${ROOT}/src/_shared-index.md  (exact PRD chapter file names and titles for cross-references)
+- ${ROOT}/canon.md  (fixed facts, conventions for database and API, roles, module codes — never contradict it)
+- ${ROOT}/style-guide.md  (easy-language voice, strict Markdown rules for the PDF builder, and the mandatory module chapter template)
+- ${ROOT}/shared-index.md  (exact PRD chapter file names and titles for cross-references)
 - ${DIR}/_briefs/${f}  (YOUR CHAPTER BRIEF: title, minimum words, sources to read, and every item the chapter must cover)
 Ground truth lives on disk — never invent tables, fields, endpoints or permission keys that are not there:
-- schema index ${ROOT}/src/_schema/README.md (every model, table, enum) and the .prisma files next to it. They are large: use Grep for "^model <Name>" / "^enum <Name>" and Read a window (offset/limit) instead of whole files.
-- endpoint registry ${ROOT}/src/_api/*.md (1,250 endpoints; read the section of your module: Grep "^## <CODE> " to find it).
-- permission registry ${ROOT}/src/_permissions.md (Grep your module's prefix to get its rows).
+- schema index E:/mysaasschool/server/prisma/schema/README.md (every model, table, enum) and the .prisma files next to it. They are large: use Grep for "^model <Name>" / "^enum <Name>" and Read a window (offset/limit) instead of whole files.
+- endpoint registry ${ROOT}/api/*.md (1,250 endpoints; read the section of your module: Grep "^## <CODE> " to find it).
+- permission registry ${ROOT}/permissions.md (Grep your module's prefix to get its rows).
 Then write the chapter to this exact path: ${DIR}/${f}
 RESUME RULE: an earlier run may have been interrupted. If the file already exists, read it, keep what is good, continue from where it stops, and make sure every item of the brief is covered and the chapter is properly closed. Do not start over unless the existing text is unusable.
 The H1 must be "# <Title from the brief>".

@@ -1,5 +1,5 @@
 """Mechanical consistency check across every written chapter of the three documents.
-Catches contradictions with docs/src/_canon.md that a human reader would miss in 1,500 pages.
+Catches contradictions with docs/canon.md that a human reader would miss in 1,500 pages.
 Usage: python check_canon.py [brd|prd|blueprint]
 Exit code 1 if any ERROR is found (WARN does not fail).
 """
@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-SRC = Path(__file__).resolve().parent.parent / "src"
+SRC = Path(__file__).resolve().parent.parent
 DOCS = sys.argv[1:] or ["brd", "prd", "blueprint", "costguide"]
 
 # (regex that must NOT appear, explanation) — these are values that contradict the canon

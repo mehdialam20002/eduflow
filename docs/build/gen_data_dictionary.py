@@ -1,13 +1,13 @@
 """Generates the four PRD data-dictionary chapters mechanically from the validated Prisma schema.
-Every column, type, default, key and comment comes straight from docs/src/_schema/*.prisma, so the
+Every column, type, default, key and comment comes straight from server/prisma/schema/*.prisma, so the
 dictionary can never drift from the schema. Re-run after any schema change:  python gen_data_dictionary.py
 """
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCHEMA = ROOT / "src" / "_schema"
-PRD = ROOT / "src" / "prd"
+SCHEMA = ROOT.parent / "server" / "prisma" / "schema"
+PRD = ROOT / "prd"
 
 CHAPTERS = [
     ("51-data-dictionary-platform-and-people.md", "Data Dictionary: Platform and People",

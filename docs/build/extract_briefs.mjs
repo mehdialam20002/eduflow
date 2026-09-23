@@ -1,5 +1,5 @@
 // One-off helper: pulls the chapter briefs out of the first BRD / Blueprint workflow scripts and stores them on disk
-// as docs/src/<doc>/_briefs/<chapter-file>.md plus docs/build/manifest.<doc>.json, so later runs only need file names.
+// as docs/<doc>/_briefs/<chapter-file>.md plus docs/build/manifest.<doc>.json, so later runs only need file names.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -9,7 +9,7 @@ const start = src.indexOf('const chapters = [');
 const end = src.indexOf('const titles');
 const RESEARCH = 'RESEARCH';
 const ROOT = 'E:/mysaasschool/docs';
-const DIR = `${ROOT}/src/${doc}`;
+const DIR = `${ROOT}/${doc}`;
 // eslint-disable-next-line no-new-func
 const chapters = new Function('RESEARCH', 'ROOT', 'DIR', `${src.slice(start, end)}; return chapters;`)(RESEARCH, ROOT, DIR);
 const outDir = path.join('E:/mysaasschool/docs/src', doc, '_briefs');

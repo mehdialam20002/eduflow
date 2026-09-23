@@ -6,7 +6,8 @@ Run: python gen_generated.py
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "src"
+SRC = Path(__file__).resolve().parent.parent
+ROOT_REPO = Path(__file__).resolve().parent.parent.parent
 PRD = SRC / "prd"
 
 DOMAIN_TITLES = {
@@ -32,7 +33,7 @@ def wrap_long_lines(text: str, limit: int = 118) -> str:
 
 
 def gen_schema() -> None:
-    files = sorted((SRC / "_schema").glob("*.prisma"))
+    files = sorted((ROOT_REPO / "server" / "prisma" / "schema").glob("*.prisma"))
     models = enums = 0
     parts = []
     for f in files:
@@ -58,7 +59,7 @@ def gen_schema() -> None:
 
 
 def gen_catalog() -> None:
-    files = sorted((SRC / "_api").glob("*.md"))
+    files = sorted((SRC / "api").glob("*.md"))
     sections = []  # (code, name, body)
     for f in files:
         text = f.read_text(encoding="utf-8")
@@ -95,7 +96,7 @@ def gen_catalog() -> None:
 
 if __name__ == "__main__":
     PRD.mkdir(parents=True, exist_ok=True)
-    if any((SRC / "_schema").glob("*.prisma")):
+    if any((ROOT_REPO / "server" / "prisma" / "schema").glob("*.prisma")):
         gen_schema()
-    if any((SRC / "_api").glob("*.md")):
+    if any((SRC / "api").glob("*.md")):
         gen_catalog()

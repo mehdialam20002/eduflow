@@ -9,23 +9,23 @@ const ROOT = 'E:/mysaasschool/docs'
 const doc = args.doc
 const files = args.files
 const workers = args.workers || 4
-const DIR = `${ROOT}/src/${doc}`
+const DIR = `${ROOT}/${doc}`
 
 const CFG = {
   brd: {
     role: 'a senior business analyst and SaaS strategist writing ONE chapter of the EduFlow Business Requirements Document (BRD)',
-    read: [`${ROOT}/src/_canon.md  (fixed facts: prices, dates, targets, roles, modules, competitors — never contradict it)`, `${ROOT}/src/_style-guide.md  (easy-language voice and strict Markdown rules for the PDF builder)`],
+    read: [`${ROOT}/canon.md  (fixed facts: prices, dates, targets, roles, modules, competitors — never contradict it)`, `${ROOT}/style-guide.md  (easy-language voice and strict Markdown rules for the PDF builder)`],
     extra: 'Use many tables, concrete numbers, worked examples and Indian context. End with "## Key takeaways".',
   },
   blueprint: {
     role: 'a hands-on startup CTO and SaaS founder-coach writing ONE chapter of the EduFlow Founder Blueprint — the solo founder\'s practical execution guide',
-    read: [`${ROOT}/src/_canon.md  (fixed facts: stack, dates, pricing, targets, modules, roles — never contradict it)`, `${ROOT}/src/_style-guide.md  (easy-language voice and strict Markdown rules for the PDF builder)`, `${ROOT}/src/_shared-index.md  (PRD file names, the 60 Claude Code prompt IDs and titles, the 60-day weekly skeleton — use these exact names and IDs)`],
+    read: [`${ROOT}/canon.md  (fixed facts: stack, dates, pricing, targets, modules, roles — never contradict it)`, `${ROOT}/style-guide.md  (easy-language voice and strict Markdown rules for the PDF builder)`, `${ROOT}/shared-index.md  (PRD file names, the 60 Claude Code prompt IDs and titles, the 60-day weekly skeleton — use these exact names and IDs)`],
     extra: 'Concrete steps, real commands, complete files, word-for-word scripts, checklists, tables. Code and config must be correct and copy-paste ready for the canon stack (Node.js 24, Express 5, Prisma 6, PostgreSQL 16, Redis 7, BullMQ, Next.js App Router); never invent CLI flags, package names or GitHub Actions — if unsure, describe the step by intent. Hinglish lines are written in Latin script. End with "## Key takeaways" (except prompt-library chapters and appendices).',
   },
   prd: {
     role: 'a principal product manager and solution architect writing ONE chapter of the EduFlow Product Requirements Document (PRD)',
-    read: [`${ROOT}/src/_canon.md  (fixed facts, conventions for database and API, roles, module codes — never contradict it)`, `${ROOT}/src/_style-guide.md  (easy-language voice, strict Markdown rules, and the mandatory module chapter template)`, `${ROOT}/src/_shared-index.md  (exact PRD chapter file names and titles for cross-references)`],
-    extra: `Ground truth lives on disk: schema index ${ROOT}/src/_schema/README.md and the .prisma files next to it (large — use Grep for "^model <Name>" and Read a window instead of whole files), endpoint registry ${ROOT}/src/_api/*.md, permission registry ${ROOT}/src/_permissions.md. Never invent tables, fields, endpoints or permission keys that are not there. TypeScript/SQL examples must be correct for the canon stack.`,
+    read: [`${ROOT}/canon.md  (fixed facts, conventions for database and API, roles, module codes — never contradict it)`, `${ROOT}/style-guide.md  (easy-language voice, strict Markdown rules, and the mandatory module chapter template)`, `${ROOT}/shared-index.md  (exact PRD chapter file names and titles for cross-references)`],
+    extra: `Ground truth lives on disk: schema index E:/mysaasschool/server/prisma/schema/README.md and the .prisma files next to it (large — use Grep for "^model <Name>" and Read a window instead of whole files), endpoint registry ${ROOT}/api/*.md, permission registry ${ROOT}/permissions.md. Never invent tables, fields, endpoints or permission keys that are not there. TypeScript/SQL examples must be correct for the canon stack.`,
   },
 }[doc]
 

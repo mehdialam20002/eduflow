@@ -1,0 +1,603 @@
+// 09-payments: gateway accounts, online payment orders, payments (all methods), allocation to invoices,
+// receipts, refunds, idempotent webhook inbox, gateway settlements and the daily cash close.
+// EduFlow never stores card numbers or CVV; only gateway tokens / ids and masked details.
+
+enum GatewayMode {
+  TEST
+  LIVE
+}
+
+enum PaymentOrderStatus {
+  CREATED
+  ATTEMPTED // checkout opened, at least one attempt made
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  NETBANKING
+  CHEQUE
+  DEMAND_DRAFT // uses the cheque* columns (number, date, bank)
+  BANK_TRANSFER
+  WALLET
+  ONLINE_GATEWAY // paid through Razorpay / Stripe checkout; the instrument is in methodDetails
+}
+
+enum PaymentStatus {
+  PENDING // cheque not cleared yet, or gateway payment not captured yet
+  SUCCESS
+  FAILED
+  CANCELLED // receipt cancelled by the accountant
+  BOUNCED // cheque returned by the bank
+  PARTIALLY_REFUNDED
+  REFUNDED
+  DISPUTED // card dispute opened at the gateway; money may be held
+  CHARGED_BACK // dispute lost; allocations are reversed and the invoices reopen
+}
+
+// What the money was paid for. Only FEE payments are allocated to fee invoices.
+enum PaymentPurpose {
+  FEE
+  APPLICATION_FEE // paid before a Student row exists; linked to AdmissionApplication
+  LIBRARY_FINE
+  CERTIFICATE_FEE
+  DEPOSIT
+  OTHER
+}
+
+enum RefundType {
+  PAYMENT_REVERSAL
+  EXCESS_PAYMENT // refund of an advance / unallocated amount
+  WITHDRAWAL // student left; fees refunded with deductions
+  CAUTION_DEPOSIT // refundable deposit returned at TC time
+  APPLICATION_FEE
+  OTHER
+}
+
+enum ChequeStatus {
+  RECEIVED
+  DEPOSITED
+  CLEARED
+  BOUNCED
+  RETURNED // handed back to the payer without depositing
+}
+
+enum ReceiptStatus {
+  ISSUED
+  CANCELLED
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  PROCESSING // sent to the gateway or the bank
+  PROCESSED
+  FAILED
+}
+
+enum WebhookProvider {
+  RAZORPAY
+  STRIPE
+  WHATSAPP
+  MSG91
+  TWILIO
+  SES
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED // will be retried until attempts reach the limit
+  IGNORED // event type not used, or the tenant could not be resolved
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSED // paid out by the gateway
+  RECONCILED // matched with the payments in EduFlow
+  MISMATCH
+  FAILED
+}
+
+enum DayCloseStatus {
+  OPEN
+  SUBMITTED
+  VERIFIED
+  DISCREPANCY
+}
+
+// A tenant's own Razorpay / Stripe account used to collect fees online (optionally one per campus).
+// One default account per organization is enforced by a partial unique index in the SQL migration (WHERE is_default AND deleted_at IS NULL).
+model PaymentGatewayAccount {
+  id               String         @id @default(uuid()) @db.Uuid
+  organizationId   String         @map("organization_id") @db.Uuid
+  campusId         String?        @map("campus_id") @db.Uuid // null = used by every campus without its own account
+  provider         PaymentGateway // RAZORPAY or STRIPE (OFFLINE is never stored here)
+  mode             GatewayMode    @default(TEST)
+  displayName      String         @map("display_name") @db.VarChar(100)
+  merchantId       String?        @map("merchant_id") @db.VarChar(100) // Razorpay merchant id / Stripe account id
+  publicKey        String         @map("public_key") @db.VarChar(200) // key id / publishable key (safe for the client)
+  secretRef        String         @map("secret_ref") @db.VarChar(255) // reference to the encrypted key secret in the secrets store; never the secret itself
+  webhookSecretRef String?        @map("webhook_secret_ref") @db.VarChar(255) // reference to the encrypted webhook signing secret
+  currency         String         @db.Char(3) // settlement currency of the account
+  passFeeToPayer   Boolean        @default(false) @map("pass_fee_to_payer") // add the gateway charge as a convenience fee
+  enabledMethods   Json?          @map("enabled_methods") // e.g. ["upi", "card", "netbanking"]
+  isDefault        Boolean        @default(false) @map("is_default")
+  status           RecordStatus   @default(ACTIVE)
+  lastVerifiedAt   DateTime?      @map("last_verified_at") @db.Timestamptz(6) // last successful credentials test
+  createdById      String?        @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus        Campus?        @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  orders        PaymentOrder[]
+  payments      Payment[]
+  settlements   Settlement[]
+  webhookEvents WebhookEvent[]
+
+  // NULL campus_id rows are kept unique by a partial unique index added in the SQL migration.
+  @@unique([organizationId, campusId, provider, mode])
+  @@index([organizationId, provider, mode, status])
+  @@map("payment_gateway_accounts")
+}
+
+// Online checkout order created at the gateway before the parent pays; safe to retry with the same idempotency key.
+model PaymentOrder {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @map("organization_id") @db.Uuid
+  campusId               String             @map("campus_id") @db.Uuid
+  gatewayAccountId       String             @map("gateway_account_id") @db.Uuid
+  purpose                PaymentPurpose     @default(FEE)
+  studentId              String?            @map("student_id") @db.Uuid // primary student; null for APPLICATION_FEE orders (no Student row yet)
+  familyId               String?            @map("family_id") @db.Uuid // one checkout for all children of a family
+  admissionApplicationId String?            @map("admission_application_id") @db.Uuid // APPLICATION_FEE orders
+  payerUserId            String?            @map("payer_user_id") @db.Uuid // parent / student login that started the checkout
+  gateway                PaymentGateway
+  gatewayOrderId         String?            @map("gateway_order_id") @db.VarChar(100) // Razorpay order id / Stripe PaymentIntent id
+  amount                 Decimal            @db.Decimal(12, 2)
+  convenienceFee         Decimal            @default(0) @map("convenience_fee") @db.Decimal(12, 2) // included in amount when passFeeToPayer
+  convenienceFeeTax      Decimal            @default(0) @map("convenience_fee_tax") @db.Decimal(12, 2) // tax on the convenience fee; included in amount
+  currency               String             @db.Char(3)
+  status                 PaymentOrderStatus @default(CREATED)
+  idempotencyKey         String             @map("idempotency_key") @db.VarChar(100) // from the Idempotency-Key header
+  invoiceSplit           Json               @map("invoice_split") // [{ invoiceId, amount }] intended allocation
+  platform               DevicePlatform     @default(WEB)
+  attempts               Int                @default(0) @db.SmallInt
+  expiresAt              DateTime           @map("expires_at") @db.Timestamptz(6)
+  paidAt                 DateTime?          @map("paid_at") @db.Timestamptz(6)
+  failureReason          String?            @map("failure_reason") @db.VarChar(255)
+  metadata               Json?
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus               Campus                @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  gatewayAccount       PaymentGatewayAccount @relation(fields: [gatewayAccountId], references: [id], onDelete: Restrict)
+  student              Student?              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  family               Family?               @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  admissionApplication AdmissionApplication? @relation(fields: [admissionApplicationId], references: [id], onDelete: Restrict)
+  payerUser            User?                 @relation(fields: [payerUserId], references: [id], onDelete: SetNull)
+  payments             Payment[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@unique([gateway, gatewayOrderId])
+  @@index([organizationId, studentId, createdAt])
+  @@index([organizationId, campusId, status, createdAt]) // "online payments" screen
+  @@index([organizationId, gatewayAccountId])
+  @@index([organizationId, admissionApplicationId])
+  @@index([organizationId, status, expiresAt]) // expiry worker
+  @@map("payment_orders")
+}
+
+// Money received from a payer by any method. Never deleted: mistakes are cancelled or refunded.
+// advance (unallocated money) = amount - convenienceFee - convenienceFeeTax - amountAllocated - amountRefunded.
+// Student ledgers are built from PaymentAllocation.studentId, not Payment.studentId (family payments cover several children).
+model Payment {
+  id                     String         @id @default(uuid()) @db.Uuid
+  organizationId         String         @map("organization_id") @db.Uuid
+  campusId               String         @map("campus_id") @db.Uuid
+  purpose                PaymentPurpose @default(FEE)
+  studentId              String?        @map("student_id") @db.Uuid // primary student; null for application fees and staff payments
+  familyId               String?        @map("family_id") @db.Uuid // family payment: one cheque / UPI transfer for several children
+  admissionApplicationId String?        @map("admission_application_id") @db.Uuid // APPLICATION_FEE payments
+  staffId                String?        @map("staff_id") @db.Uuid // staff payer, e.g. LIBRARY_FINE of a staff member
+  payerGuardianId        String?        @map("payer_guardian_id") @db.Uuid
+  payerName              String?        @map("payer_name") @db.VarChar(160) // printed on the receipt
+  paymentOrderId         String?        @map("payment_order_id") @db.Uuid // online payments only
+  gatewayAccountId       String?        @map("gateway_account_id") @db.Uuid
+  settlementId           String?        @map("settlement_id") @db.Uuid // gateway payout that contained this payment
+  dayCloseId             String?        @map("day_close_id") @db.Uuid // daily cash close that included this payment
+  method                 PaymentMethod
+  amount                 Decimal        @db.Decimal(12, 2)
+  convenienceFee         Decimal        @default(0) @map("convenience_fee") @db.Decimal(12, 2) // part of amount that is not fee income (gateway charge passed to the payer)
+  convenienceFeeTax      Decimal        @default(0) @map("convenience_fee_tax") @db.Decimal(12, 2)
+  currency               String         @db.Char(3)
+  status                 PaymentStatus  @default(SUCCESS)
+  paymentDate            DateTime       @map("payment_date") @db.Date // day-book date in the campus timezone
+  paidAt                 DateTime       @default(now()) @map("paid_at") @db.Timestamptz(6)
+  receivedById           String?        @map("received_by_id") @db.Uuid // accountant at the counter; null for online payments
+  gateway                PaymentGateway @default(OFFLINE)
+  gatewayPaymentId       String?        @map("gateway_payment_id") @db.VarChar(100)
+  gatewayFee             Decimal?       @map("gateway_fee") @db.Decimal(12, 2)
+  gatewayTax             Decimal?       @map("gateway_tax") @db.Decimal(12, 2) // tax on the gateway fee
+  methodDetails          Json?          @map("method_details") // masked only: { vpa, cardLast4, cardNetwork, bank, wallet }
+  chequeNo               String?        @map("cheque_no") @db.VarChar(20)
+  chequeDate             DateTime?      @map("cheque_date") @db.Date
+  chequeBank             String?        @map("cheque_bank") @db.VarChar(100)
+  chequeBranch           String?        @map("cheque_branch") @db.VarChar(100)
+  chequeStatus           ChequeStatus?  @map("cheque_status")
+  chequeDepositedOn      DateTime?      @map("cheque_deposited_on") @db.Date
+  chequeClearedOn        DateTime?      @map("cheque_cleared_on") @db.Date
+  chequeBouncedOn        DateTime?      @map("cheque_bounced_on") @db.Date
+  bounceReason           String?        @map("bounce_reason") @db.VarChar(255)
+  bounceCharge           Decimal?       @map("bounce_charge") @db.Decimal(12, 2) // charge debited by the bank
+  bounceChargeInvoiceId  String?        @map("bounce_charge_invoice_id") @db.Uuid // ad-hoc CHEQUE_BOUNCE_CHARGE invoice raised to the parent
+  gatewayDisputeId       String?        @map("gateway_dispute_id") @db.VarChar(100)
+  disputeStatus          String?        @map("dispute_status") @db.VarChar(30) // provider status, e.g. needs_response, won, lost
+  disputeReason          String?        @map("dispute_reason") @db.VarChar(255)
+  disputedAmount         Decimal?       @map("disputed_amount") @db.Decimal(12, 2)
+  disputeOpenedAt        DateTime?      @map("dispute_opened_at") @db.Timestamptz(6)
+  disputeResolvedAt      DateTime?      @map("dispute_resolved_at") @db.Timestamptz(6)
+  reference              String?        @db.VarChar(100) // UTR / transaction reference for UPI, bank transfer, card slip
+  idempotencyKey         String?        @map("idempotency_key") @db.VarChar(100) // from the Idempotency-Key header on counter payments
+  amountAllocated        Decimal        @default(0) @map("amount_allocated") @db.Decimal(12, 2) // sum of active allocations; the rest is an advance
+  amountRefunded         Decimal        @default(0) @map("amount_refunded") @db.Decimal(12, 2)
+  failureReason          String?        @map("failure_reason") @db.VarChar(255)
+  notes                  String?        @db.VarChar(500)
+  cancelledAt            DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  cancelledById          String?        @map("cancelled_by_id") @db.Uuid // User id (audit only, no FK)
+  cancelReason           String?        @map("cancel_reason") @db.VarChar(255)
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus                   Campus                    @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  student                  Student?                  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  family                   Family?                   @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  admissionApplication     AdmissionApplication?     @relation("PaymentAdmissionApplication", fields: [admissionApplicationId], references: [id], onDelete: Restrict)
+  applicationFeeFor        AdmissionApplication?     @relation("ApplicationFeePayment") // back-link of AdmissionApplication.applicationFeePaymentId
+  staff                    Staff?                    @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  bounceChargeInvoice      FeeInvoice?               @relation("PaymentBounceChargeInvoice", fields: [bounceChargeInvoiceId], references: [id], onDelete: SetNull)
+  payerGuardian            Guardian?                 @relation(fields: [payerGuardianId], references: [id], onDelete: SetNull)
+  paymentOrder             PaymentOrder?             @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+  gatewayAccount           PaymentGatewayAccount?    @relation(fields: [gatewayAccountId], references: [id], onDelete: Restrict)
+  settlement               Settlement?               @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+  dayClose                 DayClose?                 @relation(fields: [dayCloseId], references: [id], onDelete: SetNull)
+  receivedBy               User?                     @relation(fields: [receivedById], references: [id], onDelete: SetNull)
+  allocations              PaymentAllocation[]
+  receipt                  Receipt?
+  refunds                  Refund[]
+  scholarshipDisbursements ScholarshipDisbursement[]
+  bookIssues               BookIssue[]
+
+  @@unique([id, organizationId]) // target of composite tenant-safe foreign keys
+  @@unique([gateway, gatewayPaymentId])
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, studentId, paymentDate])
+  @@index([organizationId, campusId, paymentDate, method]) // day book and collection report
+  @@index([organizationId, campusId, status, paymentDate])
+  @@index([organizationId, purpose, paymentDate])
+  @@index([organizationId, receivedById, paymentDate])
+  @@index([organizationId, chequeStatus, chequeDate]) // "cheques to deposit today" and PDC follow-up
+  @@index([organizationId, settlementId])
+  @@index([organizationId, paymentOrderId]) // webhook capture
+  @@index([organizationId, dayCloseId])
+  @@index([organizationId, gatewayAccountId, paymentDate]) // reconciliation
+  @@index([organizationId, admissionApplicationId])
+  @@index([organizationId, familyId])
+  @@map("payments")
+}
+
+// Split of a payment across fee invoices. Reversed (not deleted) when the payment is cancelled or bounced.
+// One ACTIVE allocation per payment + invoice is enforced by a partial unique index in the SQL migration:
+//   uq_payment_allocation_active (organization_id, payment_id, invoice_id) WHERE reversed_at IS NULL
+// so a re-presented cheque or a corrected split can be allocated to the same invoice again.
+model PaymentAllocation {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  paymentId      String    @map("payment_id") @db.Uuid
+  invoiceId      String    @map("invoice_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid // denormalised from the invoice; may differ from Payment.studentId for family payments
+  amount         Decimal   @db.Decimal(12, 2)
+  amountRefunded Decimal   @default(0) @map("amount_refunded") @db.Decimal(12, 2) // sum of RefundAllocation rows
+  currency       String    @db.Char(3)
+  allocatedAt    DateTime  @default(now()) @map("allocated_at") @db.Timestamptz(6)
+  allocatedById  String?   @map("allocated_by_id") @db.Uuid // User id (audit only, no FK)
+  reversedAt     DateTime? @map("reversed_at") @db.Timestamptz(6)
+  reversedById   String?   @map("reversed_by_id") @db.Uuid // User id (audit only, no FK)
+  reversalReason String?   @map("reversal_reason") @db.VarChar(255)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  payment           Payment                 @relation(fields: [paymentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK: payment and invoice are always of the same tenant
+  invoice           FeeInvoice              @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK
+  student           Student                 @relation(fields: [studentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK
+  items             PaymentAllocationItem[]
+  refundAllocations RefundAllocation[]
+
+  @@index([organizationId, paymentId, invoiceId]) // uniqueness of ACTIVE rows: partial unique index (see model comment)
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, studentId, allocatedAt]) // student ledger
+  @@map("payment_allocations")
+}
+
+// Head-wise split of one payment allocation (which fee heads a partial payment settled, by FeeHead.settlementPriority).
+model PaymentAllocationItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  allocationId   String   @map("allocation_id") @db.Uuid
+  invoiceItemId  String   @map("invoice_item_id") @db.Uuid
+  feeHeadId      String   @map("fee_head_id") @db.Uuid // denormalised from the invoice item for the head-wise collection report
+  amount         Decimal  @db.Decimal(12, 2)
+  taxPortion     Decimal  @default(0) @map("tax_portion") @db.Decimal(12, 2) // part of amount that is tax (receipt-basis GST)
+  currency       String   @db.Char(3)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  allocation   PaymentAllocation @relation(fields: [allocationId], references: [id], onDelete: Restrict)
+  invoiceItem  FeeInvoiceItem    @relation(fields: [invoiceItemId], references: [id], onDelete: Restrict)
+  feeHead      FeeHead           @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, allocationId, invoiceItemId])
+  @@index([organizationId, feeHeadId])
+  @@index([organizationId, invoiceItemId])
+  @@map("payment_allocation_items")
+}
+
+// Numbered receipt for a successful payment (one per payment) with the PDF. Cancelled, never deleted.
+model Receipt {
+  id                     String         @id @default(uuid()) @db.Uuid
+  organizationId         String         @map("organization_id") @db.Uuid
+  campusId               String         @map("campus_id") @db.Uuid
+  paymentId              String         @unique @map("payment_id") @db.Uuid
+  purpose                PaymentPurpose @default(FEE)
+  studentId              String?        @map("student_id") @db.Uuid // null for application-fee and staff receipts
+  admissionApplicationId String?        @map("admission_application_id") @db.Uuid
+  receiptNo              String         @map("receipt_no") @db.VarChar(40) // gap-free, from NumberSequence RECEIPT_NO
+  receiptDate            DateTime       @map("receipt_date") @db.Date
+  financialYear          String?        @map("financial_year") @db.VarChar(9) // 2027-28
+  method                 PaymentMethod // frozen from the payment
+  amount                 Decimal        @db.Decimal(12, 2)
+  taxAmount              Decimal        @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  currency               String         @db.Char(3)
+  status                 ReceiptStatus  @default(ISSUED)
+  snapshot               Json // frozen student, batch, payer, method, allocations [{ invoiceNo, amount }], fee-head lines and tax breakdown used to render the PDF
+  contentHash            String?        @map("content_hash") @db.Char(64) // SHA-256 of snapshot; verified before re-render
+  replacedByReceiptId    String?        @map("replaced_by_receipt_id") @db.Uuid // receipt issued in place of this cancelled one
+  pdfFileId              String?        @map("pdf_file_id") @db.Uuid
+  sentAt                 DateTime?      @map("sent_at") @db.Timestamptz(6) // shared with the parent on WhatsApp / email
+  issuedById             String?        @map("issued_by_id") @db.Uuid // User id (audit only, no FK); null for online payments
+  cancelledAt            DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  cancelledById          String?        @map("cancelled_by_id") @db.Uuid
+  cancelReason           String?        @map("cancel_reason") @db.VarChar(255)
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus               Campus                @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  payment              Payment               @relation(fields: [paymentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK: same tenant guaranteed by the database
+  student              Student?              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  admissionApplication AdmissionApplication? @relation(fields: [admissionApplicationId], references: [id], onDelete: Restrict)
+  pdfFile              FileAsset?            @relation(fields: [pdfFileId], references: [id], onDelete: SetNull)
+  cancelledBy          User?                 @relation(fields: [cancelledById], references: [id], onDelete: SetNull)
+  replacedByReceipt    Receipt?              @relation("ReceiptReplacement", fields: [replacedByReceiptId], references: [id], onDelete: SetNull)
+  replacesReceipts     Receipt[]             @relation("ReceiptReplacement")
+
+  @@unique([paymentId, organizationId]) // required by the composite one-to-one FK to Payment
+  @@unique([organizationId, receiptNo])
+  @@index([organizationId, studentId, receiptDate])
+  @@index([organizationId, campusId, receiptDate, status])
+  @@map("receipts")
+}
+
+// Refund of a payment (full or part) with approval; online refunds go back through the gateway.
+model Refund {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @map("organization_id") @db.Uuid
+  campusId        String         @map("campus_id") @db.Uuid
+  paymentId       String         @map("payment_id") @db.Uuid
+  studentId       String?        @map("student_id") @db.Uuid // null for application-fee refunds
+  refundNo        String         @map("refund_no") @db.VarChar(40) // from NumberSequence REFUND_NO
+  refundType      RefundType     @default(PAYMENT_REVERSAL) @map("refund_type")
+  invoiceId       String?        @map("invoice_id") @db.Uuid // main invoice the money goes back against; the exact split is in RefundAllocation
+  feeHeadId       String?        @map("fee_head_id") @db.Uuid // e.g. the refundable caution deposit head
+  grossAmount     Decimal?       @map("gross_amount") @db.Decimal(12, 2) // before deductions; amount = grossAmount - deductionAmount
+  deductionAmount Decimal        @default(0) @map("deduction_amount") @db.Decimal(12, 2) // damage / cancellation charges kept back
+  deductionReason String?        @map("deduction_reason") @db.VarChar(255)
+  amount          Decimal        @db.Decimal(12, 2) // money actually paid back
+  currency        String         @db.Char(3)
+  refundDate      DateTime?      @map("refund_date") @db.Date // day-book date in the campus timezone
+  idempotencyKey  String?        @map("idempotency_key") @db.VarChar(100) // from the Idempotency-Key header; stops double refunds on retry / double click
+  dayCloseId      String?        @map("day_close_id") @db.Uuid // cash refunds summed in DayClose.cashRefunded
+  settlementId    String?        @map("settlement_id") @db.Uuid // gateway payout that netted this refund
+  reason          String         @db.VarChar(500)
+  status          RefundStatus   @default(REQUESTED)
+  method          PaymentMethod // how the money goes back
+  gateway         PaymentGateway @default(OFFLINE)
+  gatewayRefundId String?        @map("gateway_refund_id") @db.VarChar(100)
+  reference       String?        @db.VarChar(100) // UTR / cheque number of an offline refund
+  requestedById   String?        @map("requested_by_id") @db.Uuid // User id (audit only, no FK)
+  approvedById    String?        @map("approved_by_id") @db.Uuid // User who approved or rejected
+  approvedAt      DateTime?      @map("approved_at") @db.Timestamptz(6)
+  rejectionReason String?        @map("rejection_reason") @db.VarChar(255)
+  processedAt     DateTime?      @map("processed_at") @db.Timestamptz(6)
+  processedById   String?        @map("processed_by_id") @db.Uuid // User id (audit only, no FK)
+  voucherFileId   String?        @map("voucher_file_id") @db.Uuid // signed refund voucher
+  failureReason   String?        @map("failure_reason") @db.VarChar(255)
+  cancelledAt     DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason    String?        @map("cancel_reason") @db.VarChar(255)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus             @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  payment      Payment            @relation(fields: [paymentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK: same tenant guaranteed by the database
+  student      Student?           @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  invoice      FeeInvoice?        @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  feeHead      FeeHead?           @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+  dayClose     DayClose?          @relation(fields: [dayCloseId], references: [id], onDelete: SetNull)
+  settlement   Settlement?        @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+  voucherFile  FileAsset?         @relation(fields: [voucherFileId], references: [id], onDelete: SetNull)
+  approvedBy   User?              @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  allocations  RefundAllocation[]
+
+  @@unique([organizationId, refundNo])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([gateway, gatewayRefundId])
+  @@index([organizationId, paymentId])
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, settlementId])
+  @@index([organizationId, dayCloseId])
+  @@index([organizationId, campusId, refundDate])
+  @@index([organizationId, campusId, status, createdAt])
+  @@index([organizationId, studentId])
+  @@map("refunds")
+}
+
+// Which allocation / invoice the refunded money comes out of, so amountPaid and balance can be recomputed and the right invoice reopens.
+model RefundAllocation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  organizationId      String   @map("organization_id") @db.Uuid
+  refundId            String   @map("refund_id") @db.Uuid
+  paymentAllocationId String?  @map("payment_allocation_id") @db.Uuid // null = refund of the unallocated advance
+  invoiceId           String?  @map("invoice_id") @db.Uuid
+  amount              Decimal  @db.Decimal(12, 2)
+  currency            String   @db.Char(3)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  refund            Refund             @relation(fields: [refundId], references: [id], onDelete: Restrict)
+  paymentAllocation PaymentAllocation? @relation(fields: [paymentAllocationId], references: [id], onDelete: Restrict)
+  invoice           FeeInvoice?        @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, refundId])
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, paymentAllocationId])
+  @@map("refund_allocations")
+}
+
+// Inbox of provider webhooks. The unique (provider, eventId) key makes handling idempotent.
+model WebhookEvent {
+  id                String             @id @default(uuid()) @db.Uuid
+  organizationId    String?            @map("organization_id") @db.Uuid // null until the worker resolves the tenant from the payload
+  gatewayAccountId  String?            @map("gateway_account_id") @db.Uuid // payment providers only
+  provider          WebhookProvider
+  eventId           String             @map("event_id") @db.VarChar(150) // provider's event id (or a payload hash when none is sent)
+  eventType         String             @map("event_type") @db.VarChar(100) // e.g. payment.captured, charge.refunded
+  signatureValid    Boolean            @default(false) @map("signature_valid")
+  payload           Json
+  headers           Json? // selected request headers kept for debugging
+  status            WebhookEventStatus @default(RECEIVED)
+  attempts          Int                @default(0) @db.SmallInt
+  lastError         String?            @map("last_error") @db.Text
+  nextRetryAt       DateTime?          @map("next_retry_at") @db.Timestamptz(6)
+  relatedEntityType String?            @map("related_entity_type") @db.VarChar(60) // Payment, Refund, MessageLog ...
+  relatedEntityId   String?            @map("related_entity_id") @db.Uuid
+  receivedAt        DateTime           @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt       DateTime?          @map("processed_at") @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization   Organization?          @relation(fields: [organizationId], references: [id], onDelete: Restrict) // evidence trail for gateway disputes; never purged with a cascade
+  gatewayAccount PaymentGatewayAccount? @relation(fields: [gatewayAccountId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, eventId])
+  @@index([organizationId, provider, receivedAt])
+  @@index([organizationId, status, receivedAt]) // tenant-facing webhook log
+  @@index([status, nextRetryAt]) // retry worker
+  @@map("webhook_events")
+}
+
+// Gateway payout to the institute's bank account, reconciled against the payments it contains.
+model Settlement {
+  id                  String           @id @default(uuid()) @db.Uuid
+  organizationId      String           @map("organization_id") @db.Uuid
+  gatewayAccountId    String           @map("gateway_account_id") @db.Uuid
+  gateway             PaymentGateway
+  gatewaySettlementId String           @map("gateway_settlement_id") @db.VarChar(100)
+  settlementDate      DateTime         @map("settlement_date") @db.Date
+  currency            String           @db.Char(3)
+  grossAmount         Decimal          @map("gross_amount") @db.Decimal(12, 2)
+  feeAmount           Decimal          @default(0) @map("fee_amount") @db.Decimal(12, 2)
+  taxAmount           Decimal          @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  refundAmount        Decimal          @default(0) @map("refund_amount") @db.Decimal(12, 2)
+  chargebackAmount    Decimal          @default(0) @map("chargeback_amount") @db.Decimal(12, 2) // disputes debited in this payout
+  adjustmentAmount    Decimal          @default(0) @map("adjustment_amount") @db.Decimal(12, 2) // other gateway adjustments (+/-)
+  netAmount           Decimal          @map("net_amount") @db.Decimal(12, 2) // credited to the bank: gross - fee - tax - refund - chargeback + adjustment
+  utr                 String?          @db.VarChar(50) // bank reference of the payout
+  paymentCount        Int              @default(0) @map("payment_count")
+  status              SettlementStatus @default(PENDING)
+  mismatchAmount      Decimal?         @map("mismatch_amount") @db.Decimal(12, 2)
+  reconciledAt        DateTime?        @map("reconciled_at") @db.Timestamptz(6)
+  reconciledById      String?          @map("reconciled_by_id") @db.Uuid // User id (audit only, no FK); null when auto-reconciled
+  rawData             Json?            @map("raw_data") // settlement report rows from the gateway
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  gatewayAccount PaymentGatewayAccount @relation(fields: [gatewayAccountId], references: [id], onDelete: Restrict)
+  payments       Payment[]
+  refunds        Refund[]
+
+  @@unique([organizationId, gateway, gatewaySettlementId])
+  @@index([organizationId, settlementDate])
+  @@index([organizationId, status])
+  @@map("settlements")
+}
+
+// Daily cash closing by an accountant: counted cash vs system cash, and the bank deposit.
+model DayClose {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @map("organization_id") @db.Uuid
+  campusId        String         @map("campus_id") @db.Uuid
+  closeDate       DateTime       @map("close_date") @db.Date
+  closedById      String         @map("closed_by_id") @db.Uuid // accountant whose counter is closed
+  currency        String         @db.Char(3)
+  openingCash     Decimal        @default(0) @map("opening_cash") @db.Decimal(12, 2)
+  cashCollected   Decimal        @default(0) @map("cash_collected") @db.Decimal(12, 2)
+  cashRefunded    Decimal        @default(0) @map("cash_refunded") @db.Decimal(12, 2)
+  expectedCash    Decimal        @map("expected_cash") @db.Decimal(12, 2) // opening + collected - refunded
+  countedCash     Decimal        @map("counted_cash") @db.Decimal(12, 2)
+  variance        Decimal        @default(0) @db.Decimal(12, 2) // counted - expected
+  denominations   Json? // { "500": 12, "200": 5, ... }
+  totalsByMethod  Json?          @map("totals_by_method") // { CASH, UPI, CARD, CHEQUE ... } for the day
+  paymentCount    Int            @default(0) @map("payment_count")
+  depositedAmount Decimal?       @map("deposited_amount") @db.Decimal(12, 2)
+  depositBank     String?        @map("deposit_bank") @db.VarChar(100)
+  depositSlipNo   String?        @map("deposit_slip_no") @db.VarChar(50)
+  depositedOn     DateTime?      @map("deposited_on") @db.Date
+  depositSlipId   String?        @map("deposit_slip_id") @db.Uuid // scanned deposit slip
+  closingCash     Decimal?       @map("closing_cash") @db.Decimal(12, 2) // cash kept in hand; next day's opening
+  status          DayCloseStatus @default(OPEN)
+  notes           String?        @db.VarChar(500)
+  submittedAt     DateTime?      @map("submitted_at") @db.Timestamptz(6)
+  verifiedById    String?        @map("verified_by_id") @db.Uuid
+  verifiedAt      DateTime?      @map("verified_at") @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  closedBy     User         @relation("DayCloseClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  verifiedBy   User?        @relation("DayCloseVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  depositSlip  FileAsset?   @relation(fields: [depositSlipId], references: [id], onDelete: SetNull)
+  payments     Payment[]
+  refunds      Refund[]
+
+  @@unique([organizationId, campusId, closeDate, closedById])
+  @@index([organizationId, campusId, closeDate])
+  @@index([organizationId, status, closeDate])
+  @@map("day_closes")
+}

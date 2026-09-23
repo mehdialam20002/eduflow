@@ -1,0 +1,449 @@
+// 07-exams: grade scales, exams, exam schedules (date sheet), marks entry,
+// report card templates and generated report cards with remarks.
+
+enum GradeScaleType {
+  PERCENTAGE_BANDS // A1, A2, B1 ... by percentage (CBSE style)
+  GRADE_POINT // GPA / CGPA with grade points
+  PASS_FAIL
+}
+
+enum ExamType {
+  UNIT_TEST
+  MID_TERM
+  FINAL
+  MOCK
+  WEEKLY_TEST
+  PRE_BOARD
+  PRACTICAL
+  SUPPLEMENTARY // compartment exam; linked to the original through Exam.parentExamId
+  RETEST
+  ENTRANCE
+}
+
+enum ReEvaluationStatus {
+  REQUESTED
+  FEE_PENDING
+  UNDER_REVIEW
+  NO_CHANGE
+  MARKS_REVISED
+  REJECTED
+}
+
+// Lifecycle: DRAFT -> SCHEDULED -> ONGOING -> MARKS_ENTRY -> PUBLISHED. CANCELLED is a terminal side exit.
+enum ExamStatus {
+  DRAFT
+  SCHEDULED
+  ONGOING
+  MARKS_ENTRY
+  PUBLISHED
+  CANCELLED
+}
+
+// Marks-entry progress of one exam paper (ExamSchedule).
+enum MarksEntryStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED // teacher finished; waiting for verification
+  VERIFIED
+  LOCKED // published; changes need exams.marks.unlock
+}
+
+enum ReportCardBoardStyle {
+  CBSE
+  ICSE
+  STATE
+  COACHING
+  GPA
+}
+
+enum ReportCardScope {
+  EXAM // one exam
+  TERM // all exams of a term, weighted
+  ANNUAL // whole academic year
+}
+
+enum ReportCardStatus {
+  DRAFT
+  GENERATED // PDF ready, not visible to parents yet
+  PUBLISHED
+  WITHHELD // e.g. fee dues; hidden from the portals
+}
+
+enum ReportCardResult {
+  PASS
+  FAIL
+  COMPARTMENT // must re-appear in one or more subjects
+  PROMOTED
+  DETAINED
+  ABSENT
+  NOT_APPLICABLE // coaching tests without pass / fail
+}
+
+enum ReportCardRemarkType {
+  CLASS_TEACHER
+  PRINCIPAL
+  SUBJECT_TEACHER
+  CO_SCHOLASTIC // art, sports, discipline, values
+}
+
+// Grading scheme of the organization, e.g. "CBSE 9-point" or "GPA 4.0".
+model GradeScale {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  name           String         @db.VarChar(80)
+  scaleType      GradeScaleType @default(PERCENTAGE_BANDS) @map("scale_type")
+  description    String?        @db.VarChar(255)
+  isDefault      Boolean        @default(false) @map("is_default") // single default: service layer + partial unique index in the SQL migration, UNIQUE (organization_id) WHERE is_default AND deleted_at IS NULL
+  status         RecordStatus   @default(ACTIVE)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bands               GradeBand[]
+  exams               Exam[]
+  reportCardTemplates ReportCardTemplate[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status])
+  @@map("grade_scales")
+}
+
+// One band of a grade scale: grade A1 = 91-100 %, grade point 10.
+model GradeBand {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  gradeScaleId   String   @map("grade_scale_id") @db.Uuid
+  grade          String   @db.VarChar(10) // A1, B+, Distinction
+  minPercent     Decimal  @map("min_percent") @db.Decimal(5, 2) // inclusive
+  maxPercent     Decimal  @map("max_percent") @db.Decimal(5, 2) // inclusive
+  gradePoint     Decimal? @map("grade_point") @db.Decimal(4, 2)
+  description    String?  @db.VarChar(120) // Outstanding, Needs improvement
+  isPass         Boolean  @default(true) @map("is_pass")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  gradeScale   GradeScale   @relation(fields: [gradeScaleId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, gradeScaleId, grade])
+  @@index([organizationId, gradeScaleId, sortOrder])
+  @@map("grade_bands")
+}
+
+// An examination of a campus in an academic year / term: "Unit Test 1", "Half Yearly", "JEE Mock 7".
+model Exam {
+  id                 String     @id @default(uuid()) @db.Uuid
+  organizationId     String     @map("organization_id") @db.Uuid
+  campusId           String     @map("campus_id") @db.Uuid
+  academicYearId     String     @map("academic_year_id") @db.Uuid
+  termId             String?    @map("term_id") @db.Uuid
+  gradeScaleId       String?    @map("grade_scale_id") @db.Uuid // null = organization default scale
+  parentExamId       String?    @map("parent_exam_id") @db.Uuid // original exam that this supplementary / re-test replaces
+  name               String     @db.VarChar(120)
+  code               String?    @db.VarChar(30)
+  examType           ExamType   @map("exam_type")
+  status             ExamStatus @default(DRAFT)
+  startDate          DateTime   @map("start_date") @db.Date
+  endDate            DateTime   @map("end_date") @db.Date
+  weightage          Decimal?   @db.Decimal(5, 2) // % contribution to the term / annual result
+  marksEntryDeadline DateTime?  @map("marks_entry_deadline") @db.Date
+  instructions       String?    @db.Text
+  showRank           Boolean    @default(false) @map("show_rank") // coaching tests usually show ranks; many schools do not
+  publishedAt        DateTime?  @map("published_at") @db.Timestamptz(6)
+  publishedById      String?    @map("published_by_id") @db.Uuid // User id (audit only, no FK)
+  createdById        String?    @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus         @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  term         Term?          @relation(fields: [termId], references: [id], onDelete: SetNull)
+  gradeScale   GradeScale?    @relation(fields: [gradeScaleId], references: [id], onDelete: SetNull)
+  parentExam   Exam?          @relation("ExamRetest", fields: [parentExamId], references: [id], onDelete: SetNull)
+  retests      Exam[]         @relation("ExamRetest")
+  schedules    ExamSchedule[]
+  marks        ExamMark[]
+  reportCards  ReportCard[]
+
+  @@unique([organizationId, campusId, academicYearId, name])
+  @@index([organizationId, parentExamId])
+  @@index([organizationId, campusId, academicYearId, status])
+  @@index([organizationId, termId])
+  @@index([organizationId, examType, startDate])
+  @@map("exams")
+}
+
+// One paper of an exam: exam + batch + subject with date, time, room and marks limits (the date sheet).
+model ExamSchedule {
+  id                   String           @id @default(uuid()) @db.Uuid
+  organizationId       String           @map("organization_id") @db.Uuid
+  campusId             String           @map("campus_id") @db.Uuid
+  examId               String           @map("exam_id") @db.Uuid
+  batchId              String           @map("batch_id") @db.Uuid
+  subjectId            String           @map("subject_id") @db.Uuid
+  examDate             DateTime         @map("exam_date") @db.Date
+  startTime            String?          @map("start_time") @db.VarChar(5) // HH:mm in the campus timezone
+  endTime              String?          @map("end_time") @db.VarChar(5) // HH:mm in the campus timezone
+  durationMinutes      Int?             @map("duration_minutes") @db.SmallInt
+  roomId               String?          @map("room_id") @db.Uuid
+  invigilatorId        String?          @map("invigilator_id") @db.Uuid // Staff on duty
+  maxMarks             Decimal          @map("max_marks") @db.Decimal(6, 2)
+  passMarks            Decimal          @map("pass_marks") @db.Decimal(6, 2)
+  negativeMarkPerWrong Decimal?         @map("negative_mark_per_wrong") @db.Decimal(4, 2) // JEE / NEET style mock tests
+  totalQuestions       Int?             @map("total_questions") @db.SmallInt
+  syllabus             String?          @db.Text
+  marksEntryStatus     MarksEntryStatus @default(PENDING) @map("marks_entry_status")
+  marksSubmittedAt     DateTime?        @map("marks_submitted_at") @db.Timestamptz(6)
+  marksVerifiedAt      DateTime?        @map("marks_verified_at") @db.Timestamptz(6)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus                  @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  exam         Exam                    @relation(fields: [examId], references: [id], onDelete: Restrict) // exams are soft-deleted; marks are never cascade-deleted
+  batch        Batch                   @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  subject      Subject                 @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  room         Room?                   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  invigilator  Staff?                  @relation(fields: [invigilatorId], references: [id], onDelete: SetNull)
+  marks        ExamMark[]
+  components   ExamScheduleComponent[]
+
+  @@unique([id, organizationId]) // target of composite tenant-safe foreign keys
+  @@unique([organizationId, examId, batchId, subjectId])
+  @@index([organizationId, campusId, examDate])
+  @@index([organizationId, batchId, examDate])
+  @@index([organizationId, invigilatorId, examDate])
+  @@index([organizationId, examId, marksEntryStatus])
+  @@map("exam_schedules")
+}
+
+// Marks of one student in one exam paper.
+model ExamMark {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  campusId         String    @map("campus_id") @db.Uuid // denormalised from the schedule for campus scoping
+  examScheduleId   String    @map("exam_schedule_id") @db.Uuid
+  examId           String    @map("exam_id") @db.Uuid // denormalised from the schedule for result queries
+  batchId          String    @map("batch_id") @db.Uuid // denormalised from the schedule
+  subjectId        String    @map("subject_id") @db.Uuid // denormalised from the schedule
+  studentId        String    @map("student_id") @db.Uuid
+  marksObtained    Decimal?  @map("marks_obtained") @db.Decimal(6, 2) // null when absent or exempt; cached total when the paper has components
+  correctCount     Int?      @map("correct_count") @db.SmallInt // objective tests
+  incorrectCount   Int?      @map("incorrect_count") @db.SmallInt
+  unattemptedCount Int?      @map("unattempted_count") @db.SmallInt
+  negativeMarks    Decimal?  @map("negative_marks") @db.Decimal(6, 2)
+  subjectRank      Int?      @map("subject_rank") // rank in this paper across all batches that took it
+  isSupplementary  Boolean   @default(false) @map("is_supplementary") // mark earned in a SUPPLEMENTARY / RETEST exam
+  revisionCount    Int       @default(0) @map("revision_count") @db.SmallInt // times changed after re-evaluation
+  grade            String?   @db.VarChar(10) // from the grade scale at save time
+  gradePoint       Decimal?  @map("grade_point") @db.Decimal(4, 2)
+  isAbsent         Boolean   @default(false) @map("is_absent")
+  isExempt         Boolean   @default(false) @map("is_exempt") // medical or other exemption; left out of totals
+  remarks          String?   @db.VarChar(255)
+  enteredById      String?   @map("entered_by_id") @db.Uuid
+  enteredAt        DateTime? @map("entered_at") @db.Timestamptz(6)
+  verifiedById     String?   @map("verified_by_id") @db.Uuid
+  verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus               Campus                    @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  examSchedule         ExamSchedule              @relation(fields: [examScheduleId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK: same tenant guaranteed by the database
+  exam                 Exam                      @relation(fields: [examId], references: [id], onDelete: Restrict)
+  batch                Batch                     @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  subject              Subject                   @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  student              Student                   @relation(fields: [studentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK
+  enteredBy            User?                     @relation("ExamMarkEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
+  verifiedBy           User?                     @relation("ExamMarkVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  components           ExamMarkComponent[]
+  reEvaluationRequests ExamReEvaluationRequest[]
+
+  @@unique([organizationId, examScheduleId, studentId])
+  @@index([organizationId, campusId, examId])
+  @@index([organizationId, studentId, examId])
+  @@index([organizationId, examId, subjectId])
+  @@index([organizationId, examId, batchId])
+  @@map("exam_marks")
+}
+
+// Marks component of an exam paper: Theory 80 + Internal 20, or Theory 70 + Practical 30.
+model ExamScheduleComponent {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  examScheduleId String   @map("exam_schedule_id") @db.Uuid
+  name           String   @db.VarChar(60) // Theory, Practical, Internal Assessment
+  code           String   @db.VarChar(20) // TH, PR, IA
+  maxMarks       Decimal  @map("max_marks") @db.Decimal(6, 2)
+  passMarks      Decimal? @map("pass_marks") @db.Decimal(6, 2) // set when the component has its own pass rule
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  examSchedule ExamSchedule        @relation(fields: [examScheduleId], references: [id], onDelete: Cascade)
+  marks        ExamMarkComponent[]
+
+  @@unique([organizationId, examScheduleId, code])
+  @@map("exam_schedule_components")
+}
+
+// Marks of one student in one component of a paper; ExamMark.marksObtained holds the cached total.
+model ExamMarkComponent {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  examMarkId     String   @map("exam_mark_id") @db.Uuid
+  componentId    String   @map("component_id") @db.Uuid
+  marksObtained  Decimal? @map("marks_obtained") @db.Decimal(6, 2)
+  isAbsent       Boolean  @default(false) @map("is_absent")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  examMark     ExamMark              @relation(fields: [examMarkId], references: [id], onDelete: Cascade)
+  component    ExamScheduleComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, examMarkId, componentId])
+  @@index([organizationId, componentId])
+  @@map("exam_mark_components")
+}
+
+// Re-checking / re-totalling request for one exam paper of a student, raised after results are published.
+model ExamReEvaluationRequest {
+  id                String             @id @default(uuid()) @db.Uuid
+  organizationId    String             @map("organization_id") @db.Uuid
+  campusId          String             @map("campus_id") @db.Uuid
+  examMarkId        String             @map("exam_mark_id") @db.Uuid
+  studentId         String             @map("student_id") @db.Uuid
+  requestedByUserId String?            @map("requested_by_user_id") @db.Uuid // parent / student login
+  reason            String             @db.VarChar(500)
+  status            ReEvaluationStatus @default(REQUESTED)
+  feeInvoiceId      String?            @map("fee_invoice_id") @db.Uuid // ad-hoc invoice for the re-checking fee
+  originalMarks     Decimal?           @map("original_marks") @db.Decimal(6, 2)
+  revisedMarks      Decimal?           @map("revised_marks") @db.Decimal(6, 2)
+  reviewedById      String?            @map("reviewed_by_id") @db.Uuid
+  reviewedAt        DateTime?          @map("reviewed_at") @db.Timestamptz(6)
+  reviewRemarks     String?            @map("review_remarks") @db.VarChar(500)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus          Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  examMark        ExamMark     @relation(fields: [examMarkId], references: [id], onDelete: Restrict)
+  student         Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  feeInvoice      FeeInvoice?  @relation(fields: [feeInvoiceId], references: [id], onDelete: SetNull)
+  requestedByUser User?        @relation("ReEvaluationRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy      User?        @relation("ReEvaluationReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, campusId, status, createdAt])
+  @@index([organizationId, studentId])
+  @@index([organizationId, examMarkId])
+  @@map("exam_re_evaluation_requests")
+}
+
+// Report card design: board style, layout blocks and display options.
+model ReportCardTemplate {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  name           String               @db.VarChar(100)
+  boardStyle     ReportCardBoardStyle @map("board_style")
+  gradeScaleId   String?              @map("grade_scale_id") @db.Uuid
+  layout         Json // blocks, columns, fonts, logo position, signature slots
+  settings       Json? // { showRank, showAttendance, showCoScholastic, showGradeOnly, showPercentage }
+  courseIds      String[]             @map("course_ids") @db.Uuid // empty = usable for every course
+  isDefault      Boolean              @default(false) @map("is_default")
+  status         RecordStatus         @default(ACTIVE)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?            @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  gradeScale   GradeScale?  @relation(fields: [gradeScaleId], references: [id], onDelete: SetNull)
+  reportCards  ReportCard[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, boardStyle, status])
+  @@map("report_card_templates")
+}
+
+// Generated result of one student for an exam, a term or the whole year, with the PDF.
+model ReportCard {
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  campusId          String           @map("campus_id") @db.Uuid
+  academicYearId    String           @map("academic_year_id") @db.Uuid
+  studentId         String           @map("student_id") @db.Uuid
+  batchId           String           @map("batch_id") @db.Uuid // batch at the time of the result
+  scope             ReportCardScope
+  examId            String?          @map("exam_id") @db.Uuid // set when scope is EXAM
+  termId            String?          @map("term_id") @db.Uuid // set when scope is TERM
+  scopeKey          String           @map("scope_key") @db.VarChar(45) // "EXAM:{examId}", "TERM:{termId}" or "ANNUAL"; makes the unique key work without NULLs
+  templateId        String?          @map("template_id") @db.Uuid
+  totalMarks        Decimal?         @map("total_marks") @db.Decimal(8, 2) // marks obtained
+  maxMarks          Decimal?         @map("max_marks") @db.Decimal(8, 2)
+  percentage        Decimal?         @db.Decimal(5, 2)
+  grade             String?          @db.VarChar(10)
+  gradePoint        Decimal?         @map("grade_point") @db.Decimal(4, 2) // GPA / CGPA
+  rank              Int? // rank in the batch; null when ranks are switched off
+  rankOutOf         Int?             @map("rank_out_of")
+  overallRank       Int?             @map("overall_rank") // rank across all batches that took the exam ("AIR-style")
+  overallRankOutOf  Int?             @map("overall_rank_out_of")
+  percentile        Decimal?         @db.Decimal(5, 2)
+  result            ReportCardResult @default(NOT_APPLICABLE)
+  remarks           String?          @db.Text // overall remark printed on the card
+  attendanceSummary Json?            @map("attendance_summary") // { workingDays, presentDays, percent }
+  subjectResults    Json?            @map("subject_results") // frozen per-subject rows used to render the PDF
+  status            ReportCardStatus @default(DRAFT)
+  pdfFileId         String?          @map("pdf_file_id") @db.Uuid
+  generatedAt       DateTime?        @map("generated_at") @db.Timestamptz(6)
+  publishedAt       DateTime?        @map("published_at") @db.Timestamptz(6)
+  publishedById     String?          @map("published_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  student      Student             @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  batch        Batch               @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  exam         Exam?               @relation(fields: [examId], references: [id], onDelete: Restrict)
+  term         Term?               @relation(fields: [termId], references: [id], onDelete: Restrict)
+  template     ReportCardTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  pdfFile      FileAsset?          @relation(fields: [pdfFileId], references: [id], onDelete: SetNull)
+  remarkRows   ReportCardRemark[]
+
+  @@unique([organizationId, studentId, academicYearId, scopeKey])
+  @@index([organizationId, batchId, scopeKey, status])
+  @@index([organizationId, campusId, academicYearId, status])
+  @@index([organizationId, examId])
+  @@map("report_cards")
+}
+
+// Remark written on a report card by the class teacher, principal or a subject teacher.
+model ReportCardRemark {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  reportCardId   String               @map("report_card_id") @db.Uuid
+  remarkType     ReportCardRemarkType @map("remark_type")
+  subjectId      String?              @map("subject_id") @db.Uuid // SUBJECT_TEACHER remarks only
+  area           String?              @db.VarChar(80) // CO_SCHOLASTIC area, e.g. Discipline, Art
+  grade          String?              @db.VarChar(10) // optional grade for co-scholastic areas
+  body           String               @db.Text
+  authorId       String?              @map("author_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reportCard   ReportCard   @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+  subject      Subject?     @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  author       User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, reportCardId, remarkType])
+  @@map("report_card_remarks")
+}

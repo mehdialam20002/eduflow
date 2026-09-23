@@ -1,0 +1,489 @@
+// 12-payroll: salary components and structures, staff salary assignments, monthly payroll runs,
+// payslips with line items, staff loans / advances and one-off payroll adjustments.
+
+enum SalaryComponentType {
+  EARNING
+  DEDUCTION
+  EMPLOYER_CONTRIBUTION // employer PF / ESI: part of CTC, not of take-home pay
+}
+
+enum SalaryCalculationType {
+  FIXED
+  PERCENT_OF_BASIC
+  PERCENT_OF_GROSS
+  FORMULA
+}
+
+// Statutory scheme a component belongs to (India first, then the Phase 2 markets).
+enum StatutoryType {
+  NONE
+  PF // Provident Fund (India)
+  ESI // Employees' State Insurance (India)
+  PT // Professional Tax (India)
+  TDS // income tax deducted at source (India)
+  LWF // Labour Welfare Fund (India)
+  SUPERANNUATION // Australia
+  PAYG_WITHHOLDING // Australia
+  FEDERAL_INCOME_TAX // USA
+  STATE_INCOME_TAX // USA
+  SOCIAL_SECURITY // USA FICA
+  MEDICARE // USA FICA
+  GRATUITY // UAE end-of-service / India gratuity
+  PENSION_GPSSA // UAE nationals
+  OTHER_STATUTORY
+}
+
+// How a staff member is paid. Visiting / part-time faculty are paid per lecture or hour.
+enum PayBasis {
+  MONTHLY
+  PER_LECTURE
+  PER_HOUR
+  PER_DAY
+}
+
+// India income-tax regime of the employee.
+enum TaxRegime {
+  OLD
+  NEW
+  NOT_APPLICABLE
+}
+
+enum PayrollRunType {
+  REGULAR
+  OFF_CYCLE
+  FULL_AND_FINAL
+  BONUS
+  ARREARS
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  PROCESSED
+  APPROVED
+  PAID
+  LOCKED
+}
+
+enum PayslipStatus {
+  DRAFT
+  FINALIZED
+  PAID
+  ON_HOLD
+  CANCELLED
+}
+
+enum SalaryPaymentMode {
+  BANK_TRANSFER
+  CASH
+  CHEQUE
+  UPI
+}
+
+enum LoanAdvanceType {
+  LOAN
+  SALARY_ADVANCE
+}
+
+enum LoanAdvanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE // disbursed; recovery in progress
+  CLOSED
+  CANCELLED
+}
+
+enum PayrollAdjustmentType {
+  BONUS
+  INCENTIVE
+  ARREARS
+  REIMBURSEMENT
+  OVERTIME
+  SUBSTITUTION_PAY // covered periods (Substitution.status = COMPLETED)
+  LEAVE_ENCASHMENT // LeaveBalance.encashed days paid out
+  OTHER_EARNING
+  FINE
+  RECOVERY
+  OTHER_DEDUCTION
+}
+
+// Pay head: Basic, HRA, Conveyance, PF, Professional Tax, TDS ...
+model SalaryComponent {
+  id              String                @id @default(uuid()) @db.Uuid
+  organizationId  String                @map("organization_id") @db.Uuid
+  name            String                @db.VarChar(100)
+  code            String                @db.VarChar(20) // BASIC, HRA, PF_EE ... also used as the variable name in formulas
+  componentType   SalaryComponentType   @map("component_type")
+  calculationType SalaryCalculationType @default(FIXED) @map("calculation_type")
+  defaultAmount   Decimal?              @map("default_amount") @db.Decimal(12, 2) // FIXED
+  currency        String?               @db.Char(3) // currency of defaultAmount; required when calculationType is FIXED
+  countryCode     String?               @map("country_code") @db.Char(2) // null = usable in every country; else limits the component to one payroll country
+  defaultPercent  Decimal?              @map("default_percent") @db.Decimal(5, 2) // PERCENT_OF_BASIC / PERCENT_OF_GROSS
+  formula         String?               @db.VarChar(500) // FORMULA, e.g. "min(BASIC, 15000) * 0.12"; evaluated by a safe expression parser
+  statutoryType   StatutoryType         @default(NONE) @map("statutory_type")
+  isTaxable       Boolean               @default(true) @map("is_taxable")
+  isProrated      Boolean               @default(true) @map("is_prorated") // reduced for loss-of-pay days
+  showOnPayslip   Boolean               @default(true) @map("show_on_payslip")
+  sortOrder       Int                   @default(0) @map("sort_order")
+  status          RecordStatus          @default(ACTIVE)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?             @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  structureItems SalaryStructureItem[]
+  payslipItems   PayslipItem[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, componentType, status])
+  @@map("salary_components")
+}
+
+// Reusable salary template, e.g. "Teaching staff - Grade A".
+model SalaryStructure {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String       @db.VarChar(120)
+  code           String       @db.VarChar(30)
+  description    String?      @db.VarChar(500)
+  staffType      StaffType?   @map("staff_type") // null = usable for all staff
+  currency       String       @db.Char(3)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  items         SalaryStructureItem[]
+  staffSalaries StaffSalary[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@map("salary_structures")
+}
+
+// A component inside a salary structure with its rule for this structure.
+model SalaryStructureItem {
+  id                String                @id @default(uuid()) @db.Uuid
+  organizationId    String                @map("organization_id") @db.Uuid
+  salaryStructureId String                @map("salary_structure_id") @db.Uuid
+  componentId       String                @map("component_id") @db.Uuid
+  calculationType   SalaryCalculationType @map("calculation_type")
+  amount            Decimal?              @db.Decimal(12, 2)
+  percent           Decimal?              @db.Decimal(5, 2)
+  formula           String?               @db.VarChar(500)
+  sortOrder         Int                   @default(0) @map("sort_order")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+  component       SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, salaryStructureId, componentId])
+  @@index([organizationId, componentId])
+  @@map("salary_structure_items")
+}
+
+// Salary of a staff member for a date range (a new row for every revision).
+model StaffSalary {
+  id                 String            @id @default(uuid()) @db.Uuid
+  organizationId     String            @map("organization_id") @db.Uuid
+  campusId           String            @map("campus_id") @db.Uuid // staff campus when the revision was made; history survives a later transfer
+  staffId            String            @map("staff_id") @db.Uuid
+  salaryStructureId  String            @map("salary_structure_id") @db.Uuid
+  payBasis           PayBasis          @default(MONTHLY) @map("pay_basis")
+  ratePerUnit        Decimal?          @map("rate_per_unit") @db.Decimal(12, 2) // per lecture / hour / day when payBasis is not MONTHLY
+  effectiveFrom      DateTime          @map("effective_from") @db.Date
+  effectiveTo        DateTime?         @map("effective_to") @db.Date // null = current
+  ctcAnnual          Decimal           @map("ctc_annual") @db.Decimal(12, 2) // cost to company per year
+  grossMonthly       Decimal           @map("gross_monthly") @db.Decimal(12, 2)
+  basicMonthly       Decimal           @map("basic_monthly") @db.Decimal(12, 2)
+  currency           String            @db.Char(3)
+  componentOverrides Json?             @map("component_overrides") // [{ componentId, amount | percent }] values that differ from the structure
+  paymentMode        SalaryPaymentMode @default(BANK_TRANSFER) @map("payment_mode")
+  pfApplicable       Boolean           @default(false) @map("pf_applicable")
+  esiApplicable      Boolean           @default(false) @map("esi_applicable")
+  ptApplicable       Boolean           @default(false) @map("pt_applicable")
+  tdsApplicable      Boolean           @default(false) @map("tds_applicable")
+  // PF UAN, PF member id and ESI number are lifetime ids of the employee and live on Staff (uan, pfMemberId, esiIpNumber)
+  taxRegime          TaxRegime?        @map("tax_regime") // India
+  revisionReason     String?           @map("revision_reason") @db.VarChar(255) // joining, increment, promotion
+  approvedById       String?           @map("approved_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus          Campus          @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  staff           Staff           @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Restrict)
+  payslips        Payslip[]
+
+  @@unique([organizationId, staffId, effectiveFrom])
+  @@index([organizationId, campusId, effectiveTo])
+  @@index([organizationId, staffId, effectiveTo])
+  @@index([organizationId, salaryStructureId])
+  @@map("staff_salaries")
+}
+
+// Monthly payroll of a campus. LOCKED runs can never be changed; off-cycle runs (full-and-final, bonus, arrears) get their own row.
+model PayrollRun {
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  campusId          String           @map("campus_id") @db.Uuid
+  runType           PayrollRunType   @default(REGULAR) @map("run_type")
+  runNo             Int              @default(1) @map("run_no") @db.SmallInt // 1 for the regular run; counts up for off-cycle runs of the same type and month
+  month             Int              @db.SmallInt // 1-12
+  year              Int              @db.SmallInt
+  periodStart       DateTime         @map("period_start") @db.Date
+  periodEnd         DateTime         @map("period_end") @db.Date
+  status            PayrollRunStatus @default(DRAFT)
+  currency          String           @db.Char(3)
+  staffCount        Int              @default(0) @map("staff_count")
+  totalGross        Decimal          @default(0) @map("total_gross") @db.Decimal(12, 2)
+  totalDeductions   Decimal          @default(0) @map("total_deductions") @db.Decimal(12, 2)
+  totalNet          Decimal          @default(0) @map("total_net") @db.Decimal(12, 2)
+  totalEmployerCost Decimal          @default(0) @map("total_employer_cost") @db.Decimal(12, 2) // employer PF / ESI contributions
+  paymentDate       DateTime?        @map("payment_date") @db.Date
+  processedAt       DateTime?        @map("processed_at") @db.Timestamptz(6)
+  processedById     String?          @map("processed_by_id") @db.Uuid // User id (audit only, no FK)
+  approvedById      String?          @map("approved_by_id") @db.Uuid
+  approvedAt        DateTime?        @map("approved_at") @db.Timestamptz(6)
+  paidAt            DateTime?        @map("paid_at") @db.Timestamptz(6)
+  lockedAt          DateTime?        @map("locked_at") @db.Timestamptz(6)
+  notes             String?          @db.VarChar(500)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  approvedBy   User?               @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  payslips     Payslip[]
+  adjustments  PayrollAdjustment[]
+
+  @@unique([organizationId, campusId, year, month, runType, runNo])
+  @@index([organizationId, status, year, month])
+  @@map("payroll_runs")
+}
+
+// Salary slip of one staff member in one payroll run.
+// A staff member transferred mid-month must not get two regular payslips: partial unique index in the SQL migration,
+//   uq_payslip_staff_month (organization_id, staff_id, year, month) WHERE run_type = 'REGULAR' AND status <> 'CANCELLED'
+model Payslip {
+  id                   String            @id @default(uuid()) @db.Uuid
+  organizationId       String            @map("organization_id") @db.Uuid
+  campusId             String            @map("campus_id") @db.Uuid
+  payrollRunId         String            @map("payroll_run_id") @db.Uuid
+  staffId              String            @map("staff_id") @db.Uuid
+  staffSalaryId        String?           @map("staff_salary_id") @db.Uuid // salary revision used for the calculation
+  payslipNo            String            @map("payslip_no") @db.VarChar(40) // from NumberSequence PAYSLIP_NO
+  runType              PayrollRunType    @default(REGULAR) @map("run_type") // denormalised from the run for the partial unique index
+  month                Int               @db.SmallInt
+  year                 Int               @db.SmallInt
+  financialYear        String?           @map("financial_year") @db.VarChar(9) // 2027-28
+  workingDays          Decimal           @map("working_days") @db.Decimal(4, 1)
+  paidDays             Decimal           @map("paid_days") @db.Decimal(4, 1)
+  lopDays              Decimal           @default(0) @map("lop_days") @db.Decimal(4, 1) // loss-of-pay days from unpaid leave and absence
+  unitsWorked          Decimal?          @map("units_worked") @db.Decimal(6, 2) // lectures / hours / days counted from COMPLETED ClassSession rows when payBasis is not MONTHLY
+  ratePerUnit          Decimal?          @map("rate_per_unit") @db.Decimal(12, 2) // frozen from StaffSalary
+  pfWages              Decimal?          @map("pf_wages") @db.Decimal(12, 2) // statutory wage bases frozen for ECR / returns
+  epsWages             Decimal?          @map("eps_wages") @db.Decimal(12, 2)
+  esiWages             Decimal?          @map("esi_wages") @db.Decimal(12, 2)
+  ptWages              Decimal?          @map("pt_wages") @db.Decimal(12, 2)
+  taxableIncome        Decimal?          @map("taxable_income") @db.Decimal(12, 2)
+  tdsYtd               Decimal?          @map("tds_ytd") @db.Decimal(12, 2) // TDS deducted so far in the financial year (Form 16 / 24Q)
+  statutorySummary     Json?             @map("statutory_summary") // { pfEmployee, pfEmployer, eps, esiEmployee, esiEmployer, pt, tds, lwf }
+  grossEarnings        Decimal           @map("gross_earnings") @db.Decimal(12, 2)
+  totalDeductions      Decimal           @map("total_deductions") @db.Decimal(12, 2)
+  netPay               Decimal           @map("net_pay") @db.Decimal(12, 2) // grossEarnings - totalDeductions
+  employerContribution Decimal           @default(0) @map("employer_contribution") @db.Decimal(12, 2)
+  currency             String            @db.Char(3)
+  status               PayslipStatus     @default(DRAFT)
+  paymentMode          SalaryPaymentMode @default(BANK_TRANSFER) @map("payment_mode")
+  paymentReference     String?           @map("payment_reference") @db.VarChar(100) // UTR / cheque number
+  paidAt               DateTime?         @map("paid_at") @db.Timestamptz(6)
+  bankAccountLast4     String?           @map("bank_account_last4") @db.VarChar(4)
+  snapshot             Json? // frozen staff name, code, designation, department and attendance summary for the PDF
+  holdReason           String?           @map("hold_reason") @db.VarChar(255)
+  cancelledAt          DateTime?         @map("cancelled_at") @db.Timestamptz(6)
+  cancelledById        String?           @map("cancelled_by_id") @db.Uuid // User id (audit only, no FK)
+  cancelReason         String?           @map("cancel_reason") @db.VarChar(255)
+  pdfFileId            String?           @map("pdf_file_id") @db.Uuid
+  sentAt               DateTime?         @map("sent_at") @db.Timestamptz(6) // emailed / shared with the staff member
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  payrollRun   PayrollRun          @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  staff        Staff               @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  staffSalary  StaffSalary?        @relation(fields: [staffSalaryId], references: [id], onDelete: SetNull)
+  pdfFile      FileAsset?          @relation(fields: [pdfFileId], references: [id], onDelete: SetNull)
+  items        PayslipItem[]
+  adjustments  PayrollAdjustment[]
+
+  @@unique([organizationId, payrollRunId, staffId])
+  @@unique([organizationId, payslipNo])
+  @@index([organizationId, staffId, year, month])
+  @@index([organizationId, campusId, status])
+  @@map("payslips")
+}
+
+// One earning or deduction line of a payslip (values are frozen at processing time).
+model PayslipItem {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  payslipId      String              @map("payslip_id") @db.Uuid
+  componentId    String?             @map("component_id") @db.Uuid // null for loan recovery and ad-hoc adjustment lines
+  loanAdvanceId  String?             @map("loan_advance_id") @db.Uuid // EMI recovery line
+  name           String              @db.VarChar(100)
+  code           String?             @db.VarChar(20)
+  componentType  SalaryComponentType @map("component_type")
+  statutoryType  StatutoryType       @default(NONE) @map("statutory_type")
+  amount         Decimal             @db.Decimal(12, 2)
+  sortOrder      Int                 @default(0) @map("sort_order")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payslip      Payslip           @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  component    SalaryComponent?  @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  loanAdvance  StaffLoanAdvance? @relation(fields: [loanAdvanceId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, payslipId, sortOrder])
+  @@index([organizationId, componentId])
+  @@index([organizationId, loanAdvanceId])
+  @@map("payslip_items")
+}
+
+// Loan or salary advance given to a staff member and recovered through payslip deductions.
+model StaffLoanAdvance {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @map("organization_id") @db.Uuid
+  campusId          String            @map("campus_id") @db.Uuid // staff campus when the loan was given
+  staffId           String            @map("staff_id") @db.Uuid
+  loanType          LoanAdvanceType   @map("loan_type")
+  principalAmount   Decimal           @map("principal_amount") @db.Decimal(12, 2)
+  interestRate      Decimal           @default(0) @map("interest_rate") @db.Decimal(5, 2) // % per year; 0 for advances
+  totalPayable      Decimal           @map("total_payable") @db.Decimal(12, 2)
+  emiAmount         Decimal           @map("emi_amount") @db.Decimal(12, 2) // monthly deduction
+  installments      Int               @db.SmallInt
+  installmentsPaid  Int               @default(0) @map("installments_paid") @db.SmallInt
+  amountRecovered   Decimal           @default(0) @map("amount_recovered") @db.Decimal(12, 2)
+  balance           Decimal           @db.Decimal(12, 2) // totalPayable - amountRecovered
+  currency          String            @db.Char(3)
+  status            LoanAdvanceStatus @default(PENDING)
+  reason            String?           @db.VarChar(500)
+  disbursedOn       DateTime?         @map("disbursed_on") @db.Date
+  recoveryStartDate DateTime?         @map("recovery_start_date") @db.Date // first payroll month that deducts the EMI
+  approvedById      String?           @map("approved_by_id") @db.Uuid
+  approvedAt        DateTime?         @map("approved_at") @db.Timestamptz(6)
+  closedAt          DateTime?         @map("closed_at") @db.Timestamptz(6)
+  createdById       String?           @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus        @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  staff        Staff         @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  approvedBy   User?         @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  payslipItems PayslipItem[]
+
+  @@index([organizationId, campusId, status])
+  @@index([organizationId, staffId, status])
+  @@index([organizationId, status])
+  @@map("staff_loan_advances")
+}
+
+// One-off earning or deduction for a staff member in a payroll month (bonus, arrears, fine).
+model PayrollAdjustment {
+  id             String                @id @default(uuid()) @db.Uuid
+  organizationId String                @map("organization_id") @db.Uuid
+  campusId       String                @map("campus_id") @db.Uuid
+  staffId        String                @map("staff_id") @db.Uuid
+  month          Int                   @db.SmallInt // payroll month the adjustment belongs to
+  year           Int                   @db.SmallInt
+  adjustmentType PayrollAdjustmentType @map("adjustment_type")
+  componentType  SalaryComponentType   @map("component_type") // EARNING or DEDUCTION
+  amount         Decimal               @db.Decimal(12, 2)
+  currency       String                @db.Char(3)
+  isTaxable      Boolean               @default(true) @map("is_taxable")
+  reason         String                @db.VarChar(500)
+  status         ApprovalStatus        @default(PENDING)
+  payrollRunId   String?               @map("payroll_run_id") @db.Uuid // run that picked the adjustment up
+  payslipId      String?               @map("payslip_id") @db.Uuid // payslip it was applied to
+  approvedById   String?               @map("approved_by_id") @db.Uuid
+  approvedAt     DateTime?             @map("approved_at") @db.Timestamptz(6)
+  createdById    String?               @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?             @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  payrollRun   PayrollRun?  @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
+  payslip      Payslip?     @relation(fields: [payslipId], references: [id], onDelete: SetNull)
+  approvedBy   User?        @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, staffId, year, month])
+  @@index([organizationId, campusId, status, year, month])
+  @@index([organizationId, payrollRunId])
+  @@map("payroll_adjustments")
+}
+
+// Employer statutory registrations per organization or campus: PF establishment, ESI, TAN, PT, LWF (India) and ids for other countries.
+model PayrollStatutorySetting {
+  id                  String   @id @default(uuid()) @db.Uuid
+  organizationId      String   @map("organization_id") @db.Uuid
+  campusId            String?  @map("campus_id") @db.Uuid // null = whole organization
+  campusKey           String   @default("ALL") @map("campus_key") @db.VarChar(36) // "ALL" or the campusId; makes the unique key work without NULLs
+  countryCode         String   @map("country_code") @db.Char(2)
+  pfEstablishmentCode String?  @map("pf_establishment_code") @db.VarChar(30)
+  esiEmployerCode     String?  @map("esi_employer_code") @db.VarChar(30)
+  tan                 String?  @db.VarChar(15) // needed for TDS 24Q and Form 16
+  ptRegistrationNo    String?  @map("pt_registration_no") @db.VarChar(30)
+  ptStateCode         String?  @map("pt_state_code") @db.VarChar(10)
+  lwfRegistrationNo   String?  @map("lwf_registration_no") @db.VarChar(30)
+  pfWageCeiling       Decimal? @map("pf_wage_ceiling") @db.Decimal(12, 2) // e.g. 15000.00
+  esiWageCeiling      Decimal? @map("esi_wage_ceiling") @db.Decimal(12, 2)
+  currency            String   @db.Char(3)
+  otherRegistrations  Json?    @map("other_registrations") // { abn, paygWithholdingNo, wpsEstablishmentId, ein, stateUnemploymentId }
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, campusKey])
+  @@index([organizationId, countryCode])
+  @@map("payroll_statutory_settings")
+}
+
+// A staff member's annual investment / HRA declaration and previous-employer income; drives monthly TDS and Form 12BB.
+model StaffTaxDeclaration {
+  id                     String         @id @default(uuid()) @db.Uuid
+  organizationId         String         @map("organization_id") @db.Uuid
+  staffId                String         @map("staff_id") @db.Uuid
+  financialYear          String         @map("financial_year") @db.VarChar(9) // 2027-28
+  regime                 TaxRegime
+  declarations           Json // [{ section: "80C", declared, verified, proofFileId }]
+  hraRentAnnual          Decimal?       @map("hra_rent_annual") @db.Decimal(12, 2)
+  previousEmployerIncome Decimal?       @map("previous_employer_income") @db.Decimal(12, 2)
+  previousEmployerTds    Decimal?       @map("previous_employer_tds") @db.Decimal(12, 2)
+  currency               String         @db.Char(3)
+  status                 ApprovalStatus @default(PENDING)
+  verifiedById           String?        @map("verified_by_id") @db.Uuid // User id (audit only, no FK)
+  verifiedAt             DateTime?      @map("verified_at") @db.Timestamptz(6)
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, staffId, financialYear])
+  @@index([organizationId, financialYear, status])
+  @@map("staff_tax_declarations")
+}

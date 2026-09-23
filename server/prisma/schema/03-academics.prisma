@@ -1,0 +1,432 @@
+// 03-academics: sessions, terms, courses (class / program), batches (section / batch),
+// subjects, teaching assignments, rooms, holidays and the institute calendar.
+
+enum AcademicYearStatus {
+  PLANNED
+  ACTIVE
+  CLOSED // locked: no more attendance, marks or enrollment changes
+}
+
+enum BatchStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum SubjectType {
+  THEORY
+  PRACTICAL
+  LANGUAGE
+  CO_CURRICULAR
+  TEST_SERIES
+}
+
+enum RoomType {
+  CLASSROOM
+  LAB
+  LIBRARY
+  HALL
+  OFFICE
+  STAFF_ROOM
+  OTHER
+}
+
+enum HolidayType {
+  PUBLIC
+  FESTIVAL
+  VACATION
+  WEEKLY_OFF
+  EMERGENCY
+  OTHER
+}
+
+enum CalendarEventType {
+  ACADEMIC
+  EXAM
+  PTM // parent-teacher meeting
+  CULTURAL
+  SPORTS
+  MEETING
+  ADMISSION
+  OTHER
+}
+
+enum PtmBookingStatus {
+  BOOKED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+}
+
+// Academic year / session, e.g. 2027-28. Organization-wide; exactly one row is current.
+// Enforced by a partial unique index in the SQL migration: UNIQUE (organization_id) WHERE is_current AND deleted_at IS NULL
+model AcademicYear {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  name           String             @db.VarChar(30) // e.g. 2027-28
+  startDate      DateTime           @map("start_date") @db.Date
+  endDate        DateTime           @map("end_date") @db.Date
+  isCurrent      Boolean            @default(false) @map("is_current") // single current year: service layer + partial unique index
+  status         AcademicYearStatus @default(PLANNED)
+  closedAt       DateTime?          @map("closed_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?          @map("deleted_at") @db.Timestamptz(6)
+
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  terms                   Term[]
+  batches                 Batch[]
+  enrollments             Enrollment[]
+  holidays                Holiday[]
+  calendarEvents          CalendarEvent[]
+  admissionInquiries      AdmissionInquiry[]
+  admissionApplications   AdmissionApplication[]
+  attendanceSessions      AttendanceSession[]
+  leaveBalances           LeaveBalance[]
+  leaveRequests           LeaveRequest[]
+  timetableEntries        TimetableEntry[]
+  homework                Homework[]
+  exams                   Exam[]
+  reportCards             ReportCard[]
+  feeStructures           FeeStructure[]
+  studentFeeAssignments   StudentFeeAssignment[]
+  feeInvoices             FeeInvoice[]
+  studentDiscounts        StudentDiscount[]
+  scholarships            Scholarship[]
+  scholarshipApplications ScholarshipApplication[]
+  scholarshipAwards       ScholarshipAward[]
+  transportAssignments    TransportAssignment[]
+  hostelAllocations       HostelAllocation[]
+  studentRiskScores       StudentRiskScore[]
+  classSessions           ClassSession[]
+  studyMaterials          StudyMaterial[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isCurrent])
+  @@index([organizationId, startDate])
+  @@map("academic_years")
+}
+
+// Term / semester / quarter inside an academic year (used by exams, fees and report cards).
+model Term {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  academicYearId String       @map("academic_year_id") @db.Uuid
+  name           String       @db.VarChar(60) // Term 1, Semester 2
+  sortOrder      Int          @default(0) @map("sort_order")
+  startDate      DateTime     @map("start_date") @db.Date
+  endDate        DateTime     @map("end_date") @db.Date
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  exams        Exam[]
+  reportCards  ReportCard[]
+
+  @@unique([organizationId, academicYearId, name])
+  @@index([organizationId, academicYearId, sortOrder])
+  @@map("terms")
+}
+
+// Grade or program: "Class 10" in a school, "JEE Main 2028" in a coaching institute.
+model Course {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  campusId       String?      @map("campus_id") @db.Uuid // null = offered at every campus
+  name           String       @db.VarChar(120)
+  code           String       @db.VarChar(30)
+  description    String?      @db.Text
+  level          Int?         @db.SmallInt // ordering of grades (Class 1 = 1 ... Class 12 = 12); drives promotion to the next course
+  stream         String?      @db.VarChar(60) // Science, Commerce, Arts, JEE, NEET
+  board          String?      @db.VarChar(60) // CBSE, ICSE, State Board, IB
+  durationMonths Int?         @map("duration_months") @db.SmallInt // coaching programs
+  sortOrder      Int          @default(0) @map("sort_order")
+  status         RecordStatus @default(ACTIVE)
+  customFields   Json?        @map("custom_fields") // cached CustomFieldValue rows
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus                Campus?                @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  subjects              CourseSubject[]
+  batches               Batch[]
+  enrollments           Enrollment[]
+  admissionInquiries    AdmissionInquiry[]
+  admissionApplications AdmissionApplication[]
+  feeStructures         FeeStructure[]
+  students              Student[]
+  studyMaterials        StudyMaterial[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, campusId, status])
+  @@index([organizationId, sortOrder])
+  @@map("courses")
+}
+
+// Teaching group of a course in one academic year: "Section 10-A" or "Morning Batch M1".
+model Batch {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  campusId       String      @map("campus_id") @db.Uuid
+  academicYearId String      @map("academic_year_id") @db.Uuid
+  courseId       String      @map("course_id") @db.Uuid
+  name           String      @db.VarChar(80) // 10-A, Morning Batch M1
+  code           String      @db.VarChar(30)
+  capacity       Int? // max active enrollments; null = no cap
+  classTeacherId String?     @map("class_teacher_id") @db.Uuid // Staff id of the class teacher / batch in-charge
+  roomId         String?     @map("room_id") @db.Uuid // home room
+  shift          Shift       @default(FULL_DAY)
+  startTime      String?     @map("start_time") @db.VarChar(5) // HH:mm in the campus timezone
+  endTime        String?     @map("end_time") @db.VarChar(5) // HH:mm in the campus timezone
+  daysOfWeek     WeekDay[]   @map("days_of_week") // days the batch meets (coaching: MON/WED/FRI)
+  startDate      DateTime?   @map("start_date") @db.Date // coaching batches may not follow the academic year dates
+  endDate        DateTime?   @map("end_date") @db.Date
+  medium         String?     @db.VarChar(30) // language of instruction
+  status         BatchStatus @default(ACTIVE)
+  customFields   Json?       @map("custom_fields") // cached CustomFieldValue rows
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus                Campus                 @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear          AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  course                Course                 @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  classTeacher          Staff?                 @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
+  room                  Room?                  @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  subjectTeachers       BatchSubjectTeacher[]
+  enrollments           Enrollment[]
+  currentStudents       Student[]
+  admissionApplications AdmissionApplication[]
+  attendanceSessions    AttendanceSession[]
+  attendanceRecords     AttendanceRecord[]
+  studentLeaveRequests  StudentLeaveRequest[]
+  timetableEntries      TimetableEntry[]
+  homework              Homework[]
+  examSchedules         ExamSchedule[]
+  reportCards           ReportCard[]
+  feeStructures         FeeStructure[]
+  studentTransfersFrom  StudentTransfer[]      @relation("StudentTransferFromBatch")
+  studentTransfersTo    StudentTransfer[]      @relation("StudentTransferToBatch")
+  admissionInquiries    AdmissionInquiry[]
+  classSessions         ClassSession[]
+  examMarks             ExamMark[]
+
+  @@unique([id, organizationId]) // target of composite tenant-safe foreign keys
+  @@unique([organizationId, campusId, academicYearId, code])
+  @@index([organizationId, campusId, academicYearId, status])
+  @@index([organizationId, courseId, academicYearId])
+  @@index([organizationId, classTeacherId])
+  @@map("batches")
+}
+
+// Subject master, e.g. Mathematics, Physics. Shared by all campuses of the organization.
+model Subject {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String       @db.VarChar(100)
+  code           String       @db.VarChar(30)
+  subjectType    SubjectType  @default(THEORY) @map("subject_type")
+  description    String?      @db.VarChar(500)
+  color          String?      @db.VarChar(7) // hex colour for the timetable grid
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  courses            CourseSubject[]
+  batchTeachers      BatchSubjectTeacher[]
+  teachers           TeacherSubject[]
+  attendanceSessions AttendanceSession[]
+  timetableEntries   TimetableEntry[]
+  homework           Homework[]
+  examSchedules      ExamSchedule[]
+  reportCardRemarks  ReportCardRemark[]
+  books              Book[]
+  classSessions      ClassSession[]
+  studyMaterials     StudyMaterial[]
+  examMarks          ExamMark[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status, name])
+  @@map("subjects")
+}
+
+// Subject taught in a course (curriculum), with elective flag and weekly period count.
+model CourseSubject {
+  id                      String   @id @default(uuid()) @db.Uuid
+  organizationId          String   @map("organization_id") @db.Uuid
+  courseId                String   @map("course_id") @db.Uuid
+  subjectId               String   @map("subject_id") @db.Uuid
+  isElective              Boolean  @default(false) @map("is_elective") // students choose electives at enrollment
+  electiveGroup           String?  @map("elective_group") @db.VarChar(40) // subjects sharing a group are alternatives, e.g. LANG2
+  electiveGroupMinChoices Int?     @map("elective_group_min_choices") @db.SmallInt // same value on every row of the group
+  electiveGroupMaxChoices Int?     @map("elective_group_max_choices") @db.SmallInt
+  includeInTotal          Boolean  @default(true) @map("include_in_total") // false = graded only, left out of percentage and rank
+  isAdditional            Boolean  @default(false) @map("is_additional") // optional 6th subject (best-of-five rules)
+  defaultMaxMarks         Decimal? @map("default_max_marks") @db.Decimal(6, 2)
+  defaultPassMarks        Decimal? @map("default_pass_marks") @db.Decimal(6, 2)
+  weeklyPeriods           Int?     @map("weekly_periods") @db.SmallInt // target periods per week for the timetable
+  creditHours             Decimal? @map("credit_hours") @db.Decimal(4, 1) // colleges
+  sortOrder               Int      @default(0) @map("sort_order") // order on report cards
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, courseId, subjectId])
+  @@index([organizationId, subjectId])
+  @@map("course_subjects")
+}
+
+// Which teacher teaches which subject in which batch; drives the TEACHER "own batches" data scope.
+model BatchSubjectTeacher {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  campusId       String    @map("campus_id") @db.Uuid
+  batchId        String    @map("batch_id") @db.Uuid
+  subjectId      String    @map("subject_id") @db.Uuid
+  staffId        String    @map("staff_id") @db.Uuid
+  isPrimary      Boolean   @default(true) @map("is_primary") // false = co-teacher / assistant
+  effectiveFrom  DateTime? @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  batch        Batch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, batchId, subjectId, staffId])
+  @@index([organizationId, staffId])
+  @@index([organizationId, campusId, batchId])
+  @@map("batch_subject_teachers")
+}
+
+// Physical room of a campus (classroom, lab, hall) used by batches and the timetable.
+model Room {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  campusId       String       @map("campus_id") @db.Uuid
+  name           String       @db.VarChar(80)
+  building       String?      @db.VarChar(80)
+  floor          String?      @db.VarChar(20)
+  roomType       RoomType     @default(CLASSROOM) @map("room_type")
+  capacity       Int?
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus           Campus            @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  batches          Batch[]
+  timetableEntries TimetableEntry[]
+  substitutions    Substitution[]
+  examSchedules    ExamSchedule[]
+  assetAssignments AssetAssignment[]
+  classSessions    ClassSession[]
+
+  @@unique([organizationId, campusId, name])
+  @@index([organizationId, campusId, roomType, status])
+  @@map("rooms")
+}
+
+// Holiday or vacation (one day or a date range); attendance is not expected on these dates.
+model Holiday {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  campusId       String?     @map("campus_id") @db.Uuid // null = all campuses
+  academicYearId String?     @map("academic_year_id") @db.Uuid
+  name           String      @db.VarChar(120)
+  holidayType    HolidayType @default(PUBLIC) @map("holiday_type")
+  startDate      DateTime    @map("start_date") @db.Date
+  endDate        DateTime    @map("end_date") @db.Date // same as startDate for a single day
+  appliesTo      Audience    @default(ALL) @map("applies_to") // ALL, STAFF or STUDENTS
+  description    String?     @db.VarChar(500)
+  createdById    String?     @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?       @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, campusId, startDate])
+  @@index([organizationId, startDate, endDate])
+  @@map("holidays")
+}
+
+// Institute calendar entry: PTM, exam window, sports day, staff meeting.
+model CalendarEvent {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  campusId       String?           @map("campus_id") @db.Uuid // null = all campuses
+  academicYearId String?           @map("academic_year_id") @db.Uuid
+  title          String            @db.VarChar(150)
+  description    String?           @db.Text
+  eventType      CalendarEventType @default(OTHER) @map("event_type")
+  startAt        DateTime          @map("start_at") @db.Timestamptz(6)
+  endAt          DateTime          @map("end_at") @db.Timestamptz(6)
+  isAllDay       Boolean           @default(false) @map("is_all_day")
+  location       String?           @db.VarChar(150)
+  audience       Audience          @default(ALL)
+  batchIds       String[]          @map("batch_ids") @db.Uuid // empty = every batch in scope; otherwise only these batches
+  color          String?           @db.VarChar(7)
+  isPublished    Boolean           @default(true) @map("is_published") // drafts are visible to staff with calendar.manage only
+  createdById    String?           @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?       @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  ptmBookings  PtmBooking[]
+
+  @@index([organizationId, campusId, startAt])
+  @@index([organizationId, eventType, startAt])
+  @@map("calendar_events")
+}
+
+// A parent's slot with one teacher in a PTM calendar event, with attendance and notes.
+model PtmBooking {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  campusId        String           @map("campus_id") @db.Uuid
+  calendarEventId String           @map("calendar_event_id") @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  guardianId      String?          @map("guardian_id") @db.Uuid
+  staffId         String           @map("staff_id") @db.Uuid
+  slotStart       DateTime         @map("slot_start") @db.Timestamptz(6)
+  slotEnd         DateTime         @map("slot_end") @db.Timestamptz(6)
+  status          PtmBookingStatus @default(BOOKED)
+  teacherNotes    String?          @map("teacher_notes") @db.Text
+  parentFeedback  String?          @map("parent_feedback") @db.VarChar(1000)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus        Campus        @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  calendarEvent CalendarEvent @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  guardian      Guardian?     @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  staff         Staff         @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, calendarEventId, staffId, slotStart])
+  @@index([organizationId, studentId])
+  @@index([organizationId, calendarEventId, status])
+  @@index([organizationId, campusId, slotStart])
+  @@map("ptm_bookings")
+}

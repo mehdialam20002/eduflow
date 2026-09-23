@@ -1,4 +1,4 @@
-// EduFlow docs builder: docs/src/<doc>/*.md  ->  styled HTML  ->  PDF (cover, doc control, TOC with page numbers, header/footer)
+// EduFlow docs builder: docs/<doc>/*.md  ->  styled HTML  ->  PDF (cover, doc control, TOC with page numbers, header/footer)
 // Usage: node build.mjs <brd|prd|blueprint|all> [--html-only]
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +10,7 @@ import { chromium } from 'playwright-core';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DOCS = path.resolve(__dirname, '..');
-const SRC = path.join(DOCS, 'src');
+const SRC = DOCS;
 const OUT = path.join(DOCS, 'out');
 const FINAL = path.resolve(DOCS, '..');
 

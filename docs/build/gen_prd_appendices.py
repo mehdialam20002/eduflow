@@ -6,7 +6,7 @@ Run after the module chapters are written:  python gen_prd_appendices.py
 import re
 from pathlib import Path
 
-PRD = Path(__file__).resolve().parent.parent / "src" / "prd"
+PRD = Path(__file__).resolve().parent.parent / "prd"
 CAPTION = re.compile(r"^\*\*Screen\s+([A-Z]+-S\d+[a-z]?)\s*[—–-]+\s*(.+?)\*\*\s*$", flags=re.M)
 
 

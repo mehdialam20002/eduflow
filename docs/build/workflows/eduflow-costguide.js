@@ -11,7 +11,7 @@ export const meta = {
 }
 
 const ROOT = 'E:/mysaasschool/docs'
-const DIR = `${ROOT}/src/costguide`
+const DIR = `${ROOT}/costguide`
 const workers = args.workers || 3
 const ALL = [
   '01-the-money-map.md', '02-before-day-1-one-time-setup.md', '03-build-sprint-day-1-to-60.md', '04-pilot-and-launch-costs.md',
@@ -34,7 +34,7 @@ const AREAS = [
 ]
 
 const researchPrompt = (a) => `You are a meticulous startup finance researcher. Today is 21 September 2026. The founder is a solo developer building EduFlow, a multi-tenant SaaS ERP for schools and coaching institutes in India (later UAE, USA, Australia), bootstrapped, based in North India (Patna / Lucknow / Delhi NCR region).
-Read ${ROOT}/src/_canon.md (product, stack, pricing, targets) and skim ${DIR}/_anchors.md (what the business plan assumed) so you know which prices matter.
+Read ${ROOT}/canon.md (product, stack, pricing, targets) and skim ${DIR}/_anchors.md (what the business plan assumed) so you know which prices matter.
 Load the web tools first: ToolSearch with query "select:WebSearch,WebFetch". Then research CURRENT prices for this area: ${a.topics}
 Rules:
 - Prefer official vendor price pages and government fee schedules; open the page (WebFetch) for every price you mark Verified. Use reputable secondary sources only when no official page exists, and mark those Estimate.
@@ -46,8 +46,8 @@ Return: number of price rows, how many Verified vs Estimate, and the 5 most impo
 
 const writerPrompt = (f) => `You are a startup CFO and bootstrapped SaaS founder-coach writing ONE chapter of the EduFlow "Founder Cost and Spending Guide" — a practical guide for a solo developer founder in India that says when to spend, how much and on what, from Day 0 to Year 5, with minimum / recommended / maximum budgets and what to avoid.
 FIRST read these files completely:
-- ${ROOT}/src/_canon.md  (fixed facts: dates, pricing, targets, stack, roles — never contradict it)
-- ${ROOT}/src/_style-guide.md  (easy-language voice and strict Markdown rules for the PDF builder)
+- ${ROOT}/canon.md  (fixed facts: dates, pricing, targets, stack, roles — never contradict it)
+- ${ROOT}/style-guide.md  (easy-language voice and strict Markdown rules for the PDF builder)
 - ${DIR}/_anchors.md  (the BRD financial plan: the Recommended budget level MUST equal these numbers)
 - ${DIR}/90-appendix-master-price-list.md  (researched, dated vendor prices: use these numbers; do not invent other prices)
 - ${DIR}/_briefs/${f}  (YOUR CHAPTER BRIEF: title, minimum words, which research files to read, and every item to cover)
@@ -71,7 +71,7 @@ if (!args.skipResearch) {
   const failedAreas = areas.filter((a, i) => !research[i]).map(a => a.key)
   if (failedAreas.length) { log(`Research failed for ${failedAreas.join(', ')} — stopping so the next run resumes research first`); return { researchFailed: failedAreas } }
   phase('Price list')
-  const priceList = await agent(`You are the editor of the EduFlow Founder Cost and Spending Guide. Read ${ROOT}/src/_style-guide.md, ${DIR}/_anchors.md and ALL five research files in ${DIR}/_research/ (company-legal-tax, software-infra-ai, messaging-payments, people-marketing-living, international-and-programs). Some may be missing if a researcher failed — work with what exists and say so.
+  const priceList = await agent(`You are the editor of the EduFlow Founder Cost and Spending Guide. Read ${ROOT}/style-guide.md, ${DIR}/_anchors.md and ALL five research files in ${DIR}/_research/ (company-legal-tax, software-infra-ai, messaging-payments, people-marketing-living, international-and-programs). Some may be missing if a researcher failed — work with what exists and say so.
 RESUME RULE: ${DIR}/90-appendix-master-price-list.md may already exist and stop part-way (look for a literal @@CONTINUE@@ marker at the end). If so, read it, keep every group already written, delete the marker, and continue from the first missing group. Never restart it from scratch. Never leave a marker in the finished file.
 Write ${DIR}/90-appendix-master-price-list.md — the single source of truth for prices that every chapter will use:
 - H1 "# Master Price List", then "**In simple words:**" (what this is, checked in September 2026, prices change, confirm before paying), then how to read it (Verified vs Estimate, exchange rates US$1 = Rs 85, A$1 = Rs 56, AED 1 = Rs 23, GST treatment).

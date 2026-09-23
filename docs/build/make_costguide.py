@@ -1,5 +1,5 @@
 """Sets up the 4th document: EduFlow Founder Cost & Spending Guide.
-Writes docs/src/costguide/_meta.json, _anchors.md (numbers copied from the BRD so the guide stays consistent),
+Writes docs/costguide/_meta.json, _anchors.md (numbers copied from the BRD so the guide stays consistent),
 _briefs/<file>.md and docs/build/manifest.costguide.json.
 """
 import json
@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 BUILD = Path(__file__).resolve().parent
-SRC = BUILD.parent / "src"
+SRC = BUILD.parent
 DOC = SRC / "costguide"
 (DOC / "_briefs").mkdir(parents=True, exist_ok=True)
 (DOC / "_research").mkdir(parents=True, exist_ok=True)

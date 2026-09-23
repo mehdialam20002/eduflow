@@ -1,8 +1,8 @@
-"""Writes docs/src/<doc>/_meta.json (cover, document control, parts) for the three EduFlow documents."""
+"""Writes docs/<doc>/_meta.json (cover, document control, parts) for the three EduFlow documents."""
 import json
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "src"
+SRC = Path(__file__).resolve().parent.parent
 
 
 def common_info(doc):

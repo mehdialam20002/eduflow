@@ -1,0 +1,994 @@
+// 01-platform: SaaS plans and billing, tenants (Organization, Campus), settings,
+// numbering, custom fields, files, import/export jobs and platform reference data.
+
+enum OrganizationStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum SubscriptionInvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+  REFUNDED
+}
+
+enum AddOnType {
+  EXTRA_CAMPUS
+  AI_INSIGHTS
+  WHITE_LABEL_APP
+  WHATSAPP_CREDITS
+  SMS_CREDITS
+  DATA_MIGRATION
+  ONSITE_TRAINING
+}
+
+enum AddOnStatus {
+  PENDING
+  ACTIVE
+  CONSUMED
+  EXPIRED
+  CANCELLED
+}
+
+enum NumberSequenceType {
+  ADMISSION_NO
+  APPLICATION_NO
+  INQUIRY_NO
+  ROLL_NO
+  EMPLOYEE_CODE
+  FEE_INVOICE_NO
+  RECEIPT_NO
+  REFUND_NO
+  CERTIFICATE_NO
+  PAYSLIP_NO
+  PURCHASE_ORDER_NO
+  LIBRARY_ACCESSION_NO
+  CREDIT_NOTE_NO
+  DSR_REQUEST_NO
+  OTHER
+}
+
+enum SequenceResetPolicy {
+  NEVER
+  CALENDAR_YEAR
+  ACADEMIC_YEAR
+  FINANCIAL_YEAR
+  MONTHLY
+}
+
+enum CustomFieldEntity {
+  STUDENT
+  GUARDIAN
+  STAFF
+  ADMISSION_INQUIRY
+  ADMISSION_APPLICATION
+  COURSE
+  BATCH
+}
+
+enum CustomFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  PHONE
+  EMAIL
+  URL
+  FILE
+}
+
+enum FileVisibility {
+  PRIVATE // owner entity + permitted staff only
+  ORGANIZATION // any signed-in user of the tenant
+  PUBLIC // served through CloudFront (logos, public notices)
+}
+
+enum FileStatus {
+  PENDING_UPLOAD // pre-signed URL issued, upload not confirmed yet
+  ACTIVE
+  QUARANTINED // failed virus scan
+  DELETED
+}
+
+enum ImportType {
+  STUDENTS
+  GUARDIANS
+  STAFF
+  ENROLLMENTS
+  INQUIRIES
+  ATTENDANCE
+  FEE_DUES
+  FEE_PAYMENTS
+  EXAM_MARKS
+  LIBRARY_BOOKS
+  INVENTORY_ITEMS
+  OTHER
+}
+
+// Platform reference: ISO 3166 country with regional defaults. No tenant scope.
+model Country {
+  id                  String   @id @default(uuid()) @db.Uuid
+  code                String   @unique @db.Char(2) // ISO 3166-1 alpha-2, e.g. IN
+  iso3                String   @unique @db.Char(3)
+  name                String   @db.VarChar(100)
+  dialCode            String   @map("dial_code") @db.VarChar(8) // e.g. +91
+  defaultCurrencyCode String   @map("default_currency_code") @db.Char(3)
+  defaultTimezone     String   @map("default_timezone") @db.VarChar(64) // IANA, e.g. Asia/Kolkata
+  defaultLocale       String   @map("default_locale") @db.VarChar(10) // e.g. en-IN
+  taxName             String?  @map("tax_name") @db.VarChar(20) // GST, VAT, Sales Tax
+  taxPercent          Decimal? @map("tax_percent") @db.Decimal(5, 2) // tax on the EduFlow subscription
+  taxIdLabel          String?  @map("tax_id_label") @db.VarChar(20) // GSTIN, ABN, TRN, EIN
+  isSupported         Boolean  @default(false) @map("is_supported") // open for signup
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  defaultCurrency Currency       @relation(fields: [defaultCurrencyCode], references: [code], onDelete: Restrict)
+  organizations   Organization[]
+  campuses        Campus[]
+
+  @@map("countries")
+}
+
+// Platform reference: ISO 4217 currency. No tenant scope.
+model Currency {
+  id            String   @id @default(uuid()) @db.Uuid
+  code          String   @unique @db.Char(3) // ISO 4217, e.g. INR
+  name          String   @db.VarChar(60)
+  symbol        String   @db.VarChar(8)
+  decimalDigits Int      @default(2) @map("decimal_digits") @db.SmallInt
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  countries     Country[]
+  organizations Organization[]
+  planPrices    PlanPrice[]
+
+  @@map("currencies")
+}
+
+// Platform reference: daily exchange rate used to convert provider costs (USD) and cross-currency reports. No tenant scope.
+model ExchangeRate {
+  id            String   @id @default(uuid()) @db.Uuid
+  baseCurrency  String   @map("base_currency") @db.Char(3)
+  quoteCurrency String   @map("quote_currency") @db.Char(3)
+  rate          Decimal  @db.Decimal(18, 8) // 1 base = rate quote
+  rateDate      DateTime @map("rate_date") @db.Date
+  source        String   @db.VarChar(40) // e.g. ECB, RBI, MANUAL
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([baseCurrency, quoteCurrency, rateDate])
+  @@map("exchange_rates")
+}
+
+// SaaS plan catalogue (Starter, Growth, Pro, Enterprise). Platform-level.
+model Plan {
+  id             String       @id @default(uuid()) @db.Uuid
+  code           String       @unique @db.VarChar(30) // STARTER, GROWTH, PRO, ENTERPRISE
+  name           String       @db.VarChar(60)
+  description    String?      @db.Text
+  maxStudents    Int?         @map("max_students") // active students; null = unlimited
+  maxCampuses    Int?         @map("max_campuses") // null = unlimited
+  maxAdminUsers  Int?         @map("max_admin_users")
+  maxStaffUsers  Int?         @map("max_staff_users") // null = unlimited
+  storageGb      Int?         @map("storage_gb")
+  trialDays      Int          @default(14) @map("trial_days")
+  isPublic       Boolean      @default(true) @map("is_public") // shown on the pricing page
+  isCustomPriced Boolean      @default(false) @map("is_custom_priced") // Enterprise: price agreed per contract
+  sortOrder      Int          @default(0) @map("sort_order")
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  prices        PlanPrice[]
+  features      PlanFeature[]
+  organizations Organization[]
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+// Price of a plan per currency and billing cycle (tax excluded). Platform-level.
+model PlanPrice {
+  id           String       @id @default(uuid()) @db.Uuid
+  planId       String       @map("plan_id") @db.Uuid
+  currency     String       @db.Char(3)
+  billingCycle BillingCycle @map("billing_cycle")
+  amount       Decimal      @db.Decimal(12, 2)
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plan        Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  currencyRef Currency @relation(fields: [currency], references: [code], onDelete: Restrict)
+
+  @@unique([planId, currency, billingCycle])
+  @@map("plan_prices")
+}
+
+// Module and feature gating per plan (which modules/limits a plan unlocks). Platform-level.
+model PlanFeature {
+  id         String      @id @default(uuid()) @db.Uuid
+  planId     String      @map("plan_id") @db.Uuid
+  featureKey String      @map("feature_key") @db.VarChar(60) // e.g. module.LIB, custom_roles, whatsapp_sending, api_access
+  module     ModuleCode? // set when the feature row gates a whole module
+  isEnabled  Boolean     @default(true) @map("is_enabled")
+  limitValue Int?        @map("limit_value") // numeric cap for metered features; null = no cap
+  config     Json? // extra options, e.g. { "branding": "eduflow" }
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureKey])
+  @@index([planId, module])
+  @@map("plan_features")
+}
+
+// The tenant: one school, school group or coaching institute.
+model Organization {
+  id                      String             @id @default(uuid()) @db.Uuid
+  name                    String             @db.VarChar(150)
+  legalName               String?            @map("legal_name") @db.VarChar(200)
+  slug                    String             @unique @db.VarChar(63) // subdomain: {slug}.eduflow.app
+  customDomain            String?            @unique @map("custom_domain") @db.VarChar(255) // white-label (Enterprise)
+  type                    OrganizationType
+  status                  OrganizationStatus @default(TRIAL)
+  planId                  String             @map("plan_id") @db.Uuid // current plan, denormalised from the live subscription for fast gating
+  countryCode             String             @map("country_code") @db.Char(2)
+  currency                String             @db.Char(3) // default currency for fees
+  // timezone, locale and currency are set at signup from Country.defaultTimezone / defaultLocale / defaultCurrencyCode; the column defaults are only a fallback
+  timezone                String             @default("Asia/Kolkata") @db.VarChar(64) // IANA name
+  locale                  String             @default("en-IN") @db.VarChar(10)
+  stateCode               String?            @map("state_code") @db.VarChar(10) // GST state code (e.g. 09) / ISO 3166-2; decides CGST+SGST vs IGST
+  isTaxRegistered         Boolean            @default(false) @map("is_tax_registered")
+  taxIdType               String?            @map("tax_id_type") @db.VarChar(10) // GSTIN | ABN | TRN | EIN
+  financialYearStartMonth Int                @default(4) @map("financial_year_start_month") @db.SmallInt // 4 = April (India), 7 = July (Australia), 1 = January (UAE, USA)
+  weekStartsOn            WeekDay            @default(MONDAY) @map("week_starts_on")
+  dataRegion              String             @default("ap-south-1") @map("data_region") @db.VarChar(20) // AWS region that holds this tenant's files and backups
+  email                   String             @db.VarChar(255)
+  phone                   String?            @db.VarChar(20) // E.164
+  website                 String?            @db.VarChar(255)
+  addressLine1            String?            @map("address_line1") @db.VarChar(200)
+  addressLine2            String?            @map("address_line2") @db.VarChar(200)
+  city                    String?            @db.VarChar(100)
+  state                   String?            @db.VarChar(100)
+  postalCode              String?            @map("postal_code") @db.VarChar(20)
+  taxId                   String?            @map("tax_id") @db.VarChar(30) // GSTIN in India; ABN / TRN / EIN elsewhere
+  registrationNo          String?            @map("registration_no") @db.VarChar(60) // board affiliation / registration number
+  logoUrl                 String?            @map("logo_url") @db.VarChar(500)
+  branding                Json? // { primaryColor, secondaryColor, faviconUrl, receiptFooter, hideEduflowBranding }
+  ownerUserId             String?            @map("owner_user_id") @db.Uuid // User id of the account owner (no FK to avoid a circular dependency)
+  trialStartsAt           DateTime?          @map("trial_starts_at") @db.Timestamptz(6)
+  trialEndsAt             DateTime?          @map("trial_ends_at") @db.Timestamptz(6)
+  onboardingCompletedAt   DateTime?          @map("onboarding_completed_at") @db.Timestamptz(6)
+  activatedAt             DateTime?          @map("activated_at") @db.Timestamptz(6) // first fee receipt or first attendance
+  suspendedAt             DateTime?          @map("suspended_at") @db.Timestamptz(6)
+  suspendedReason         String?            @map("suspended_reason") @db.VarChar(255)
+  signupSource            String?            @map("signup_source") @db.VarChar(60) // website, referral, partner, sales
+  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime?          @map("deleted_at") @db.Timestamptz(6)
+
+  plan                          Plan                           @relation(fields: [planId], references: [id], onDelete: Restrict)
+  country                       Country                        @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  currencyRef                   Currency                       @relation(fields: [currency], references: [code], onDelete: Restrict)
+  subscriptions                 Subscription[]
+  subscriptionInvoices          SubscriptionInvoice[]
+  addOnPurchases                AddOnPurchase[]
+  campuses                      Campus[]
+  organizationSettings          OrganizationSetting[]
+  numberSequences               NumberSequence[]
+  customFieldDefinitions        CustomFieldDefinition[]
+  customFieldValues             CustomFieldValue[]
+  fileAssets                    FileAsset[]
+  importJobs                    ImportJob[]
+  importJobRowErrors            ImportJobRowError[]
+  exportJobs                    ExportJob[]
+  users                         User[]
+  roles                         Role[]
+  rolePermissions               RolePermission[]
+  userRoles                     UserRole[]
+  userCampuses                  UserCampus[]
+  refreshTokens                 RefreshToken[]
+  otpCodes                      OtpCode[]
+  passwordResetTokens           PasswordResetToken[]
+  invitations                   Invitation[]
+  loginHistories                LoginHistory[]
+  auditLogs                     AuditLog[]
+  apiKeys                       ApiKey[]
+  consentRecords                ConsentRecord[]
+  dataSubjectRequests           DataSubjectRequest[]
+  academicYears                 AcademicYear[]
+  terms                         Term[]
+  courses                       Course[]
+  batches                       Batch[]
+  subjects                      Subject[]
+  courseSubjects                CourseSubject[]
+  batchSubjectTeachers          BatchSubjectTeacher[]
+  rooms                         Room[]
+  holidays                      Holiday[]
+  calendarEvents                CalendarEvent[]
+  departments                   Department[]
+  designations                  Designation[]
+  staff                         Staff[]
+  staffDocuments                StaffDocument[]
+  teacherSubjects               TeacherSubject[]
+  students                      Student[]
+  guardians                     Guardian[]
+  studentGuardians              StudentGuardian[]
+  enrollments                   Enrollment[]
+  studentDocuments              StudentDocument[]
+  studentNotes                  StudentNote[]
+  studentStatusHistories        StudentStatusHistory[]
+  admissionInquiries            AdmissionInquiry[]
+  inquiryFollowUps              InquiryFollowUp[]
+  admissionApplications         AdmissionApplication[]
+  admissionApplicationDocuments AdmissionApplicationDocument[]
+  attendanceSessions            AttendanceSession[]
+  attendanceRecords             AttendanceRecord[]
+  staffAttendances              StaffAttendance[]
+  leaveTypes                    LeaveType[]
+  leavePolicies                 LeavePolicy[]
+  leaveBalances                 LeaveBalance[]
+  leaveRequests                 LeaveRequest[]
+  leaveApprovalSteps            LeaveApprovalStep[]
+  studentLeaveRequests          StudentLeaveRequest[]
+  periodSlots                   PeriodSlot[]
+  timetableEntries              TimetableEntry[]
+  substitutions                 Substitution[]
+  homework                      Homework[]
+  homeworkAttachments           HomeworkAttachment[]
+  homeworkSubmissions           HomeworkSubmission[]
+  homeworkSubmissionFiles       HomeworkSubmissionFile[]
+  gradeScales                   GradeScale[]
+  gradeBands                    GradeBand[]
+  exams                         Exam[]
+  examSchedules                 ExamSchedule[]
+  examMarks                     ExamMark[]
+  reportCardTemplates           ReportCardTemplate[]
+  reportCards                   ReportCard[]
+  reportCardRemarks             ReportCardRemark[]
+  feeHeads                      FeeHead[]
+  feeStructures                 FeeStructure[]
+  feeStructureItems             FeeStructureItem[]
+  feeInstallments               FeeInstallment[]
+  studentFeeAssignments         StudentFeeAssignment[]
+  feeInvoices                   FeeInvoice[]
+  feeInvoiceItems               FeeInvoiceItem[]
+  lateFeeRules                  LateFeeRule[]
+  discounts                     Discount[]
+  studentDiscounts              StudentDiscount[]
+  scholarships                  Scholarship[]
+  scholarshipApplications       ScholarshipApplication[]
+  scholarshipAwards             ScholarshipAward[]
+  scholarshipDisbursements      ScholarshipDisbursement[]
+  feeReminderLogs               FeeReminderLog[]
+  paymentGatewayAccounts        PaymentGatewayAccount[]
+  paymentOrders                 PaymentOrder[]
+  payments                      Payment[]
+  paymentAllocations            PaymentAllocation[]
+  receipts                      Receipt[]
+  refunds                       Refund[]
+  webhookEvents                 WebhookEvent[]
+  settlements                   Settlement[]
+  dayCloses                     DayClose[]
+  notificationTemplates         NotificationTemplate[]
+  notifications                 Notification[]
+  notificationPreferences       NotificationPreference[]
+  announcements                 Announcement[]
+  announcementRecipients        AnnouncementRecipient[]
+  messageLogs                   MessageLog[]
+  whatsAppAccounts              WhatsAppAccount[]
+  whatsAppTemplates             WhatsAppTemplate[]
+  whatsAppInboundMessages       WhatsAppInboundMessage[]
+  emailSenderIdentities         EmailSenderIdentity[]
+  emailSuppressions             EmailSuppression[]
+  smsSenderIds                  SmsSenderId[]
+  messageCreditWallets          MessageCreditWallet[]
+  creditTransactions            CreditTransaction[]
+  deviceTokens                  DeviceToken[]
+  libraryCategories             LibraryCategory[]
+  books                         Book[]
+  bookCopies                    BookCopy[]
+  bookIssues                    BookIssue[]
+  inventoryCategories           InventoryCategory[]
+  inventoryItems                InventoryItem[]
+  vendors                       Vendor[]
+  purchaseOrders                PurchaseOrder[]
+  purchaseOrderItems            PurchaseOrderItem[]
+  stockTransactions             StockTransaction[]
+  assetAssignments              AssetAssignment[]
+  vehicles                      Vehicle[]
+  driverProfiles                DriverProfile[]
+  transportRoutes               TransportRoute[]
+  routeStops                    RouteStop[]
+  transportAssignments          TransportAssignment[]
+  vehicleTrips                  VehicleTrip[]
+  vehicleMaintenances           VehicleMaintenance[]
+  hostels                       Hostel[]
+  hostelRooms                   HostelRoom[]
+  hostelBeds                    HostelBed[]
+  hostelAllocations             HostelAllocation[]
+  hostelAttendances             HostelAttendance[]
+  hostelVisitorLogs             HostelVisitorLog[]
+  salaryComponents              SalaryComponent[]
+  salaryStructures              SalaryStructure[]
+  salaryStructureItems          SalaryStructureItem[]
+  staffSalaries                 StaffSalary[]
+  payrollRuns                   PayrollRun[]
+  payslips                      Payslip[]
+  payslipItems                  PayslipItem[]
+  staffLoanAdvances             StaffLoanAdvance[]
+  payrollAdjustments            PayrollAdjustment[]
+  certificateTemplates          CertificateTemplate[]
+  issuedCertificates            IssuedCertificate[]
+  certificateRequests           CertificateRequest[]
+  savedReports                  SavedReport[]
+  reportSchedules               ReportSchedule[]
+  dailyMetricSnapshots          DailyMetricSnapshot[]
+  dashboardPreferences          DashboardPreference[]
+  aiInsights                    AiInsight[]
+  studentRiskScores             StudentRiskScore[]
+  aiQueryLogs                   AiQueryLog[]
+  aiUsageQuotas                 AiUsageQuota[]
+  policyDocuments               PolicyDocument[]
+  dataBreachIncidents           DataBreachIncident[]
+  ptmBookings                   PtmBooking[]
+  families                      Family[]
+  staffStatusHistories          StaffStatusHistory[]
+  studentTransfers              StudentTransfer[]
+  classSessions                 ClassSession[]
+  studyMaterials                StudyMaterial[]
+  examScheduleComponents        ExamScheduleComponent[]
+  examMarkComponents            ExamMarkComponent[]
+  examReEvaluationRequests      ExamReEvaluationRequest[]
+  taxRates                      TaxRate[]
+  feeInvoiceAdjustments         FeeInvoiceAdjustment[]
+  studentFeeInstallments        StudentFeeInstallment[]
+  paymentAllocationItems        PaymentAllocationItem[]
+  refundAllocations             RefundAllocation[]
+  smsDltTemplates               SmsDltTemplate[]
+  bookReservations              BookReservation[]
+  transportAttendances          TransportAttendance[]
+  hostelLeaveRequests           HostelLeaveRequest[]
+  payrollStatutorySettings      PayrollStatutorySetting[]
+  staffTaxDeclarations          StaffTaxDeclaration[]
+
+  @@index([status])
+  @@index([planId])
+  @@index([countryCode, type])
+  @@map("organizations")
+}
+
+// A tenant's SaaS subscription to a plan (one live row per organization; history kept).
+// One live row is enforced by a partial unique index in the SQL migration:
+// UNIQUE (organization_id) WHERE status IN ('TRIALING','ACTIVE','PAST_DUE','PAUSED')
+model Subscription {
+  id                    String             @id @default(uuid()) @db.Uuid
+  organizationId        String             @map("organization_id") @db.Uuid
+  planId                String             @map("plan_id") @db.Uuid
+  status                SubscriptionStatus @default(TRIALING)
+  billingCycle          BillingCycle       @default(MONTHLY) @map("billing_cycle")
+  currency              String             @db.Char(3)
+  unitAmount            Decimal            @map("unit_amount") @db.Decimal(12, 2) // price per cycle before tax
+  discountAmount        Decimal            @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  taxPercent            Decimal            @default(0) @map("tax_percent") @db.Decimal(5, 2)
+  studentLimitOverride  Int?               @map("student_limit_override") // Enterprise contracts
+  campusLimitOverride   Int?               @map("campus_limit_override")
+  startDate             DateTime           @map("start_date") @db.Date
+  currentPeriodStart    DateTime           @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd      DateTime           @map("current_period_end") @db.Timestamptz(6)
+  trialEndsAt           DateTime?          @map("trial_ends_at") @db.Timestamptz(6)
+  cancelAtPeriodEnd     Boolean            @default(false) @map("cancel_at_period_end")
+  cancelledAt           DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason          String?            @map("cancel_reason") @db.VarChar(255)
+  gateway               PaymentGateway     @default(OFFLINE)
+  gatewayCustomerId     String?            @map("gateway_customer_id") @db.VarChar(100)
+  gatewaySubscriptionId String?            @map("gateway_subscription_id") @db.VarChar(100)
+  notes                 String?            @db.Text
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  plan         Plan                  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices     SubscriptionInvoice[]
+  addOns       AddOnPurchase[]
+
+  @@unique([gateway, gatewaySubscriptionId])
+  @@index([organizationId, status])
+  @@index([status, currentPeriodEnd]) // renewal and dunning worker
+  @@map("subscriptions")
+}
+
+// Invoice raised by EduFlow to a tenant for the subscription and add-ons.
+model SubscriptionInvoice {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  organizationId     String                    @map("organization_id") @db.Uuid
+  subscriptionId     String?                   @map("subscription_id") @db.Uuid // null for one-time add-on invoices
+  invoiceNo          String                    @unique @map("invoice_no") @db.VarChar(40) // platform-wide series, e.g. EF/26-27/000123; max 16 chars when the issuer is GST-registered (India, GST Rule 46)
+  status             SubscriptionInvoiceStatus @default(OPEN)
+  currency           String                    @db.Char(3)
+  supplierEntity     String                    @default("EDUFLOW_IN") @map("supplier_entity") @db.VarChar(30) // EduFlow billing entity that issued the invoice
+  supplierTaxId      String?                   @map("supplier_tax_id") @db.VarChar(30) // supplier GSTIN / TRN / ABN frozen at issue
+  sacCode            String?                   @map("sac_code") @db.VarChar(10) // e.g. 998314
+  billingCountryCode String                    @map("billing_country_code") @db.Char(2)
+  billingStateCode   String?                   @map("billing_state_code") @db.VarChar(10)
+  placeOfSupply      String?                   @map("place_of_supply") @db.VarChar(10)
+  taxName            String?                   @map("tax_name") @db.VarChar(20) // GST, VAT, Sales Tax
+  taxBreakdown       Json?                     @map("tax_breakdown") // [{ code: CGST|SGST|IGST|GST|VAT|SALES_TAX, percent, amount }]
+  isReverseCharge    Boolean                   @default(false) @map("is_reverse_charge") // export of services / B2B reverse charge
+  amountRefunded     Decimal                   @default(0) @map("amount_refunded") @db.Decimal(12, 2)
+  creditNoteNo       String?                   @unique @map("credit_note_no") @db.VarChar(40)
+  creditNoteDate     DateTime?                 @map("credit_note_date") @db.Date
+  voidedAt           DateTime?                 @map("voided_at") @db.Timestamptz(6)
+  voidReason         String?                   @map("void_reason") @db.VarChar(255)
+  subtotal           Decimal                   @db.Decimal(12, 2)
+  discountAmount     Decimal                   @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  taxPercent         Decimal                   @default(0) @map("tax_percent") @db.Decimal(5, 2)
+  taxAmount          Decimal                   @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  totalAmount        Decimal                   @map("total_amount") @db.Decimal(12, 2)
+  amountPaid         Decimal                   @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  periodStart        DateTime?                 @map("period_start") @db.Date
+  periodEnd          DateTime?                 @map("period_end") @db.Date
+  issueDate          DateTime                  @map("issue_date") @db.Date
+  dueDate            DateTime                  @map("due_date") @db.Date
+  paidAt             DateTime?                 @map("paid_at") @db.Timestamptz(6)
+  gateway            PaymentGateway            @default(OFFLINE)
+  gatewayInvoiceId   String?                   @map("gateway_invoice_id") @db.VarChar(100)
+  gatewayPaymentId   String?                   @map("gateway_payment_id") @db.VarChar(100)
+  billingName        String                    @map("billing_name") @db.VarChar(200)
+  billingTaxId       String?                   @map("billing_tax_id") @db.VarChar(30) // customer GSTIN at the time of invoicing
+  billingAddress     Json?                     @map("billing_address")
+  lineItems          Json                      @map("line_items") // [{ description, quantity, unitAmount, amount, addOnPurchaseId? }]
+  pdfFileId          String?                   @map("pdf_file_id") @db.Uuid
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  subscription Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  pdfFile      FileAsset?      @relation(fields: [pdfFileId], references: [id], onDelete: SetNull)
+  addOns       AddOnPurchase[]
+
+  @@unique([gateway, gatewayInvoiceId]) // idempotent webhook upserts; NULLs allowed for OFFLINE invoices
+  @@unique([gateway, gatewayPaymentId])
+  @@index([organizationId, status])
+  @@index([organizationId, issueDate])
+  @@index([status, dueDate]) // dunning worker
+  @@map("subscription_invoices")
+}
+
+// Add-on bought by a tenant: extra campus, AI Insights, WhatsApp/SMS credit packs, migration, training.
+model AddOnPurchase {
+  id               String        @id @default(uuid()) @db.Uuid
+  organizationId   String        @map("organization_id") @db.Uuid
+  subscriptionId   String?       @map("subscription_id") @db.Uuid
+  invoiceId        String?       @map("invoice_id") @db.Uuid
+  campusId         String?       @map("campus_id") @db.Uuid // the campus unlocked by EXTRA_CAMPUS
+  addOnType        AddOnType     @map("add_on_type")
+  description      String?       @db.VarChar(255)
+  quantity         Int           @default(1)
+  unitAmount       Decimal       @map("unit_amount") @db.Decimal(12, 2)
+  totalAmount      Decimal       @map("total_amount") @db.Decimal(12, 2) // before tax
+  currency         String        @db.Char(3)
+  isRecurring      Boolean       @default(false) @map("is_recurring")
+  billingCycle     BillingCycle? @map("billing_cycle") // only when recurring
+  status           AddOnStatus   @default(PENDING)
+  creditsGranted   Decimal?      @map("credits_granted") @db.Decimal(12, 4) // message credits (SMS) or wallet money (WhatsApp) for credit packs
+  creditsRemaining Decimal?      @map("credits_remaining") @db.Decimal(12, 4) // unexpired remainder; used for FIFO pack expiry
+  creditUnit       CreditUnit?   @map("credit_unit")
+  taxAmount        Decimal       @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  refundedAmount   Decimal       @default(0) @map("refunded_amount") @db.Decimal(12, 2)
+  cancelledAt      DateTime?     @map("cancelled_at") @db.Timestamptz(6)
+  startsAt         DateTime?     @map("starts_at") @db.Timestamptz(6)
+  expiresAt        DateTime?     @map("expires_at") @db.Timestamptz(6)
+  purchasedById    String?       @map("purchased_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  subscription       Subscription?        @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  invoice            SubscriptionInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  campus             Campus?              @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  creditTransactions CreditTransaction[]
+
+  @@index([organizationId, addOnType, status])
+  @@index([organizationId, addOnType, expiresAt])
+  @@map("add_on_purchases")
+}
+
+// A branch / centre of an organization. Most operational data is scoped to a campus.
+// One main campus per organization is enforced by a partial unique index in the SQL migration:
+// UNIQUE (organization_id) WHERE is_main AND deleted_at IS NULL
+model Campus {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  name            String       @db.VarChar(150)
+  code            String       @db.VarChar(20) // short code used in numbering, e.g. LKO1
+  isMain          Boolean      @default(false) @map("is_main")
+  email           String?      @db.VarChar(255)
+  phone           String?      @db.VarChar(20)
+  addressLine1    String?      @map("address_line1") @db.VarChar(200)
+  addressLine2    String?      @map("address_line2") @db.VarChar(200)
+  city            String?      @db.VarChar(100)
+  state           String?      @db.VarChar(100)
+  postalCode      String?      @map("postal_code") @db.VarChar(20)
+  countryCode     String?      @map("country_code") @db.Char(2)
+  timezone        String?      @db.VarChar(64) // overrides the organization timezone when set
+  latitude        Decimal?     @db.Decimal(9, 6) // used for geo-fenced staff attendance
+  longitude       Decimal?     @db.Decimal(9, 6)
+  geoRadiusMeters Int?         @map("geo_radius_meters")
+  taxId           String?      @map("tax_id") @db.VarChar(30) // campus-level GSTIN when registered separately
+  isTaxRegistered Boolean      @default(false) @map("is_tax_registered")
+  stateCode       String?      @map("state_code") @db.VarChar(10) // GST state code / ISO 3166-2
+  currency        String?      @db.Char(3) // overrides Organization.currency
+  locale          String?      @db.VarChar(10) // overrides Organization.locale
+  board           String?      @db.VarChar(60) // CBSE, ICSE, UP Board ...
+  affiliationNo   String?      @map("affiliation_no") @db.VarChar(40) // printed on TCs, report cards and board forms
+  schoolCode      String?      @map("school_code") @db.VarChar(40)
+  udiseCode       String?      @map("udise_code") @db.VarChar(20)
+  logoUrl         String?      @map("logo_url") @db.VarChar(500) // overrides Organization.logoUrl
+  weeklyOffDays   WeekDay[]    @map("weekly_off_days") // used by attendance, leave day counts and payroll working days
+  status          RecordStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  country                  Country?                  @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  addOnPurchases           AddOnPurchase[]
+  organizationSettings     OrganizationSetting[]
+  numberSequences          NumberSequence[]
+  fileAssets               FileAsset[]
+  importJobs               ImportJob[]
+  exportJobs               ExportJob[]
+  userCampuses             UserCampus[]
+  auditLogs                AuditLog[]
+  courses                  Course[]
+  batches                  Batch[]
+  batchSubjectTeachers     BatchSubjectTeacher[]
+  rooms                    Room[]
+  holidays                 Holiday[]
+  calendarEvents           CalendarEvent[]
+  departments              Department[]
+  staff                    Staff[]
+  students                 Student[]
+  enrollments              Enrollment[]
+  admissionInquiries       AdmissionInquiry[]
+  admissionApplications    AdmissionApplication[]
+  attendanceSessions       AttendanceSession[]
+  attendanceRecords        AttendanceRecord[]
+  staffAttendances         StaffAttendance[]
+  leaveRequests            LeaveRequest[]
+  studentLeaveRequests     StudentLeaveRequest[]
+  periodSlots              PeriodSlot[]
+  timetableEntries         TimetableEntry[]
+  substitutions            Substitution[]
+  homework                 Homework[]
+  exams                    Exam[]
+  examSchedules            ExamSchedule[]
+  reportCards              ReportCard[]
+  feeStructures            FeeStructure[]
+  studentFeeAssignments    StudentFeeAssignment[]
+  feeInvoices              FeeInvoice[]
+  lateFeeRules             LateFeeRule[]
+  scholarshipApplications  ScholarshipApplication[]
+  scholarshipAwards        ScholarshipAward[]
+  feeReminderLogs          FeeReminderLog[]
+  paymentGatewayAccounts   PaymentGatewayAccount[]
+  paymentOrders            PaymentOrder[]
+  payments                 Payment[]
+  receipts                 Receipt[]
+  refunds                  Refund[]
+  dayCloses                DayClose[]
+  announcements            Announcement[]
+  messageLogs              MessageLog[]
+  whatsAppAccounts         WhatsAppAccount[]
+  bookCopies               BookCopy[]
+  bookIssues               BookIssue[]
+  inventoryItems           InventoryItem[]
+  purchaseOrders           PurchaseOrder[]
+  stockTransactions        StockTransaction[]        @relation("StockTransactionCampus")
+  stockTransfersReceived   StockTransaction[]        @relation("StockTransferCounterCampus")
+  assetAssignments         AssetAssignment[]
+  vehicles                 Vehicle[]
+  transportRoutes          TransportRoute[]
+  transportAssignments     TransportAssignment[]
+  vehicleTrips             VehicleTrip[]
+  vehicleMaintenances      VehicleMaintenance[]
+  hostels                  Hostel[]
+  hostelAllocations        HostelAllocation[]
+  payrollRuns              PayrollRun[]
+  payslips                 Payslip[]
+  payrollAdjustments       PayrollAdjustment[]
+  issuedCertificates       IssuedCertificate[]
+  certificateRequests      CertificateRequest[]
+  savedReports             SavedReport[]
+  dailyMetricSnapshots     DailyMetricSnapshot[]
+  aiInsights               AiInsight[]
+  studentRiskScores        StudentRiskScore[]
+  studentTransfersFrom     StudentTransfer[]         @relation("StudentTransferFromCampus")
+  studentTransfersTo       StudentTransfer[]         @relation("StudentTransferToCampus")
+  ptmBookings              PtmBooking[]
+  classSessions            ClassSession[]
+  studyMaterials           StudyMaterial[]
+  examMarks                ExamMark[]
+  examReEvaluationRequests ExamReEvaluationRequest[]
+  taxRates                 TaxRate[]
+  feeInvoiceAdjustments    FeeInvoiceAdjustment[]
+  studentDiscounts         StudentDiscount[]
+  scholarshipDisbursements ScholarshipDisbursement[]
+  bookReservations         BookReservation[]
+  transportAttendances     TransportAttendance[]
+  hostelAttendances        HostelAttendance[]
+  hostelVisitorLogs        HostelVisitorLog[]
+  hostelLeaveRequests      HostelLeaveRequest[]
+  staffSalaries            StaffSalary[]
+  staffLoanAdvances        StaffLoanAdvance[]
+  payrollStatutorySettings PayrollStatutorySetting[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@map("campuses")
+}
+
+// Key/value settings per organization, with an optional campus-level override.
+model OrganizationSetting {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  campusId       String?  @map("campus_id") @db.Uuid // null = organization-wide value
+  key            String   @db.VarChar(100) // e.g. attendance.lock_after_hours, fees.late_fee_policy
+  value          Json
+  updatedById    String?  @map("updated_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: Cascade)
+
+  // NULL campus_id rows are kept unique by a partial unique index added in the SQL migration:
+  // UNIQUE (organization_id, key) WHERE campus_id IS NULL
+  @@unique([organizationId, campusId, key])
+  @@index([organizationId, key])
+  @@map("organization_settings")
+}
+
+// Gap-free counters for admission, receipt, invoice and other document numbers.
+model NumberSequence {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  campusId       String?             @map("campus_id") @db.Uuid // null = one series for the whole organization
+  sequenceType   NumberSequenceType  @map("sequence_type")
+  periodKey      String              @default("") @map("period_key") @db.VarChar(20) // "2027", "2027-28", "2027-04" or "" when never reset
+  prefix         String?             @db.VarChar(20)
+  suffix         String?             @db.VarChar(20)
+  format         String              @default("{PREFIX}-{YYYY}-{SEQ}") @db.VarChar(100) // tokens: {PREFIX} {CAMPUS} {YYYY} {YY} {AY} {MM} {SEQ} {SUFFIX}
+  padLength      Int                 @default(4) @map("pad_length") @db.SmallInt
+  maxLength      Int?                @map("max_length") @db.SmallInt // 16 for GST tax-invoice series; validated when the format is saved
+  nextValue      Int                 @default(1) @map("next_value") // incremented with SELECT ... FOR UPDATE inside the business transaction
+  resetPolicy    SequenceResetPolicy @default(NEVER) @map("reset_policy")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: Cascade)
+
+  // NULL campus_id rows are kept unique by a partial unique index added in the SQL migration.
+  @@unique([organizationId, campusId, sequenceType, periodKey])
+  @@index([organizationId, sequenceType])
+  @@map("number_sequences")
+}
+
+// Tenant-defined extra field for students, staff, inquiries and other entities.
+model CustomFieldDefinition {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @map("organization_id") @db.Uuid
+  entityType      CustomFieldEntity @map("entity_type")
+  key             String            @db.VarChar(60) // machine name, e.g. aadhaar_seeded
+  label           String            @db.VarChar(120)
+  fieldType       CustomFieldType   @map("field_type")
+  options         Json? // choices for SELECT / MULTI_SELECT: [{ value, label }]
+  validation      Json? // { min, max, regex, maxLength }
+  defaultValue    Json?             @map("default_value")
+  helpText        String?           @map("help_text") @db.VarChar(255)
+  isRequired      Boolean           @default(false) @map("is_required")
+  showInList      Boolean           @default(false) @map("show_in_list")
+  visibleToParent Boolean           @default(false) @map("visible_to_parent")
+  sortOrder       Int               @default(0) @map("sort_order")
+  status          RecordStatus      @default(ACTIVE)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  values       CustomFieldValue[]
+
+  @@unique([organizationId, entityType, key])
+  @@index([organizationId, entityType, status, sortOrder])
+  @@map("custom_field_definitions")
+}
+
+// Value of a custom field for one entity row (polymorphic: entityType + entityId).
+model CustomFieldValue {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  definitionId   String            @map("definition_id") @db.Uuid
+  entityType     CustomFieldEntity @map("entity_type")
+  entityId       String            @map("entity_id") @db.Uuid // id of the Student, Staff ... row
+  value          Json
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  definition   CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, definitionId, entityId])
+  @@index([organizationId, entityType, entityId])
+  @@map("custom_field_values")
+}
+
+// Metadata of a file stored in a private S3 bucket; served through pre-signed URLs.
+// Rows are never hard-deleted: purge sets status = DELETED + deletedAt and removes only the S3 object.
+model FileAsset {
+  id                   String         @id @default(uuid()) @db.Uuid
+  organizationId       String         @map("organization_id") @db.Uuid
+  campusId             String?        @map("campus_id") @db.Uuid
+  bucket               String         @db.VarChar(100)
+  region               String         @default("ap-south-1") @db.VarChar(20) // AWS region of the bucket (data residency)
+  containsPersonalData Boolean        @default(true) @map("contains_personal_data")
+  retentionUntil       DateTime?      @map("retention_until") @db.Date
+  s3Key                String         @unique @map("s3_key") @db.VarChar(500) // org/{orgId}/{category}/{uuid}-{name}
+  originalName         String         @map("original_name") @db.VarChar(255)
+  mimeType             String         @map("mime_type") @db.VarChar(127)
+  sizeBytes            Int            @map("size_bytes") // max upload size is far below 2 GB
+  checksumSha256       String?        @map("checksum_sha256") @db.Char(64)
+  category             String?        @db.VarChar(40) // student-photo, student-document, homework, receipt, import, export ...
+  ownerType            String?        @map("owner_type") @db.VarChar(60) // owning entity model name, e.g. Student, Homework
+  ownerId              String?        @map("owner_id") @db.Uuid // id of the owning entity row
+  visibility           FileVisibility @default(PRIVATE)
+  status               FileStatus     @default(PENDING_UPLOAD)
+  uploadedById         String?        @map("uploaded_by_id") @db.Uuid
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  uploadedBy   User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  importSourceJobs               ImportJob[]                    @relation("ImportJobSourceFile")
+  importErrorJobs                ImportJob[]                    @relation("ImportJobErrorFile")
+  subscriptionInvoices           SubscriptionInvoice[]
+  exportJobs                     ExportJob[]
+  consentRecords                 ConsentRecord[]
+  dataSubjectRequests            DataSubjectRequest[]
+  staffPhotos                    Staff[]
+  staffDocuments                 StaffDocument[]
+  studentPhotos                  Student[]
+  studentDocuments               StudentDocument[]
+  admissionApplicationDocuments  AdmissionApplicationDocument[]
+  leaveRequests                  LeaveRequest[]
+  studentLeaveRequests           StudentLeaveRequest[]
+  homeworkAttachments            HomeworkAttachment[]
+  homeworkSubmissionFiles        HomeworkSubmissionFile[]
+  reportCards                    ReportCard[]
+  feeInvoices                    FeeInvoice[]
+  receipts                       Receipt[]
+  dayCloseDepositSlips           DayClose[]
+  whatsAppInboundMessages        WhatsAppInboundMessage[]
+  bookCovers                     Book[]
+  vehicleMaintenanceBills        VehicleMaintenance[]
+  payslips                       Payslip[]
+  certificateTemplateBackgrounds CertificateTemplate[]
+  issuedCertificates             IssuedCertificate[]
+  studyMaterials                 StudyMaterial[]
+  refunds                        Refund[]
+
+  @@index([organizationId, ownerType, ownerId])
+  @@index([organizationId, category, createdAt])
+  @@index([organizationId, status, deletedAt]) // purge worker
+  @@map("file_assets")
+}
+
+// Bulk Excel/CSV import run (students, staff, fee dues ...) processed by a worker.
+model ImportJob {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  campusId       String?    @map("campus_id") @db.Uuid
+  importType     ImportType @map("import_type")
+  status         JobStatus  @default(QUEUED)
+  isDryRun       Boolean    @default(false) @map("is_dry_run") // validate only, write nothing
+  sourceFileId   String     @map("source_file_id") @db.Uuid
+  errorFileId    String?    @map("error_file_id") @db.Uuid // generated workbook with the failed rows and reasons
+  columnMapping  Json?      @map("column_mapping") // { "Excel column": "fieldName" }
+  options        Json? // { updateExisting, academicYearId, batchId, dateFormat }
+  totalRows      Int        @default(0) @map("total_rows")
+  processedRows  Int        @default(0) @map("processed_rows")
+  successRows    Int        @default(0) @map("success_rows")
+  failedRows     Int        @default(0) @map("failed_rows")
+  errorMessage   String?    @map("error_message") @db.Text // fatal job-level error
+  startedAt      DateTime?  @map("started_at") @db.Timestamptz(6)
+  finishedAt     DateTime?  @map("finished_at") @db.Timestamptz(6)
+  createdById    String?    @map("created_by_id") @db.Uuid
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?             @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  sourceFile   FileAsset           @relation("ImportJobSourceFile", fields: [sourceFileId], references: [id], onDelete: Restrict)
+  errorFile    FileAsset?          @relation("ImportJobErrorFile", fields: [errorFileId], references: [id], onDelete: SetNull)
+  createdBy    User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  rowErrors    ImportJobRowError[]
+
+  @@index([organizationId, importType, createdAt])
+  @@index([organizationId, status])
+  @@map("import_jobs")
+}
+
+// One rejected row (or cell) of an import job. Append-only: no updatedAt / deletedAt.
+model ImportJobRowError {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  importJobId    String   @map("import_job_id") @db.Uuid
+  rowNumber      Int      @map("row_number") // 1-based row in the uploaded sheet
+  columnName     String?  @map("column_name") @db.VarChar(100)
+  errorCode      String   @map("error_code") @db.VarChar(60) // e.g. REQUIRED, INVALID_DATE, DUPLICATE_ADMISSION_NO
+  message        String   @db.VarChar(500)
+  rowData        Json?    @map("row_data") // original row values for the error workbook
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  importJob    ImportJob    @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, importJobId, rowNumber])
+  @@map("import_job_row_errors")
+}
+
+// Asynchronous export of a list or report to Excel/CSV/PDF; file link expires.
+model ExportJob {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  campusId       String?    @map("campus_id") @db.Uuid
+  exportType     String     @map("export_type") @db.VarChar(80) // e.g. students.list, fees.defaulters, attendance.monthly
+  format         FileFormat @default(XLSX)
+  filters        Json? // the list filters that were active when the export was requested
+  columns        Json? // selected columns
+  status         JobStatus  @default(QUEUED)
+  fileId         String?    @map("file_id") @db.Uuid
+  rowCount       Int?       @map("row_count")
+  errorMessage   String?    @map("error_message") @db.Text
+  startedAt      DateTime?  @map("started_at") @db.Timestamptz(6)
+  finishedAt     DateTime?  @map("finished_at") @db.Timestamptz(6)
+  expiresAt      DateTime?  @map("expires_at") @db.Timestamptz(6) // file is purged after this time
+  requestedById  String?    @map("requested_by_id") @db.Uuid
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  file         FileAsset?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  requestedBy  User?        @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, requestedById, createdAt])
+  @@index([organizationId, status])
+  @@map("export_jobs")
+}

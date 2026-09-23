@@ -1,0 +1,361 @@
+// 05-attendance-leave: student attendance (daily or per period), staff attendance,
+// staff leave (types, policies, balances, requests with approval chain) and student leave.
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  LEAVE // approved leave
+  HOLIDAY
+}
+
+enum StaffAttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+  WEEK_OFF
+}
+
+enum AttendanceSource {
+  MANUAL
+  BIOMETRIC
+  GEO // mobile check-in inside the campus geo-fence
+  RFID // card tap at the gate
+  QR_CODE
+  FACE
+  PARENT_APP
+}
+
+enum LeaveAccrual {
+  YEARLY_UPFRONT
+  MONTHLY
+  QUARTERLY
+  NONE // unpaid / on-request leave without a quota
+}
+
+enum StudentLeaveCategory {
+  SICK
+  FAMILY
+  TRAVEL
+  EXAM_OR_EVENT
+  OTHER
+}
+
+// One attendance-taking event for a batch: the whole day, or one period of the day.
+model AttendanceSession {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  campusId          String    @map("campus_id") @db.Uuid
+  academicYearId    String    @map("academic_year_id") @db.Uuid
+  batchId           String    @map("batch_id") @db.Uuid
+  date              DateTime  @db.Date
+  periodSlotId      String?   @map("period_slot_id") @db.Uuid // null = daily attendance
+  slotKey           String    @default("DAY") @map("slot_key") @db.VarChar(36) // "DAY", the periodSlotId or the classSessionId; makes the unique key work without NULLs
+  classSessionId    String?   @map("class_session_id") @db.Uuid // coaching: the dated lecture this attendance belongs to
+  subjectId         String?   @map("subject_id") @db.Uuid // period-wise attendance only
+  takenById         String?   @map("taken_by_id") @db.Uuid // User who marked the attendance
+  takenAt           DateTime? @map("taken_at") @db.Timestamptz(6)
+  isLocked          Boolean   @default(false) @map("is_locked") // locked sessions need attendance.unlock to edit
+  lockedAt          DateTime? @map("locked_at") @db.Timestamptz(6)
+  totalCount        Int       @default(0) @map("total_count") // cached counters for dashboards
+  presentCount      Int       @default(0) @map("present_count")
+  absentCount       Int       @default(0) @map("absent_count")
+  lateCount         Int       @default(0) @map("late_count")
+  leaveCount        Int       @default(0) @map("leave_count")
+  parentsNotifiedAt DateTime? @map("parents_notified_at") @db.Timestamptz(6) // absence alerts queued
+  notes             String?   @db.VarChar(500)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus             @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  batch        Batch              @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  periodSlot   PeriodSlot?        @relation(fields: [periodSlotId], references: [id], onDelete: Restrict)
+  subject      Subject?           @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  takenBy      User?              @relation(fields: [takenById], references: [id], onDelete: SetNull)
+  classSession ClassSession?      @relation(fields: [classSessionId], references: [id], onDelete: SetNull)
+  records      AttendanceRecord[]
+
+  @@unique([id, organizationId]) // target of composite tenant-safe foreign keys
+  @@unique([organizationId, batchId, date, slotKey])
+  @@index([organizationId, classSessionId])
+  @@index([organizationId, campusId, date])
+  @@index([organizationId, academicYearId, batchId, date])
+  @@index([organizationId, takenById, date])
+  @@map("attendance_sessions")
+}
+
+// Attendance of one student in one session.
+model AttendanceRecord {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  campusId       String           @map("campus_id") @db.Uuid
+  sessionId      String           @map("session_id") @db.Uuid
+  studentId      String           @map("student_id") @db.Uuid
+  batchId        String           @map("batch_id") @db.Uuid // denormalised from the session for reports
+  date           DateTime         @db.Date // denormalised from the session for reports
+  status         AttendanceStatus
+  lateMinutes    Int?             @map("late_minutes") @db.SmallInt
+  halfDaySession HalfDaySession?  @map("half_day_session") // which half was attended when HALF_DAY
+  source         AttendanceSource @default(MANUAL)
+  checkInAt      DateTime?        @map("check_in_at") @db.Timestamptz(6) // device punch (RFID / QR / face)
+  checkOutAt     DateTime?        @map("check_out_at") @db.Timestamptz(6)
+  deviceRef      String?          @map("device_ref") @db.VarChar(100)
+  remark         String?          @db.VarChar(255)
+  leaveRequestId String?          @map("leave_request_id") @db.Uuid // approved student leave that produced status LEAVE
+  markedById     String?          @map("marked_by_id") @db.Uuid // User id (audit only, no FK)
+  notifiedAt     DateTime?        @map("notified_at") @db.Timestamptz(6) // absence alert sent to the parent
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus               @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  session      AttendanceSession    @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK; attendance is a statutory record, never cascade-deleted
+  student      Student              @relation(fields: [studentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK: same tenant guaranteed by the database
+  batch        Batch                @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  leaveRequest StudentLeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, sessionId, studentId])
+  @@index([organizationId, studentId, date])
+  @@index([organizationId, batchId, date, status])
+  @@index([organizationId, campusId, date, status])
+  @@map("attendance_records")
+}
+
+// Daily attendance of a staff member with check-in / check-out.
+model StaffAttendance {
+  id             String                @id @default(uuid()) @db.Uuid
+  organizationId String                @map("organization_id") @db.Uuid
+  campusId       String                @map("campus_id") @db.Uuid
+  staffId        String                @map("staff_id") @db.Uuid
+  date           DateTime              @db.Date
+  status         StaffAttendanceStatus
+  checkInAt      DateTime?             @map("check_in_at") @db.Timestamptz(6)
+  checkOutAt     DateTime?             @map("check_out_at") @db.Timestamptz(6)
+  workedMinutes  Int?                  @map("worked_minutes")
+  lateMinutes    Int?                  @map("late_minutes") @db.SmallInt
+  source         AttendanceSource      @default(MANUAL)
+  checkInLat     Decimal?              @map("check_in_lat") @db.Decimal(9, 6) // GEO source only
+  checkInLng     Decimal?              @map("check_in_lng") @db.Decimal(9, 6)
+  checkOutLat    Decimal?              @map("check_out_lat") @db.Decimal(9, 6)
+  checkOutLng    Decimal?              @map("check_out_lng") @db.Decimal(9, 6)
+  deviceRef      String?               @map("device_ref") @db.VarChar(100) // biometric device id or mobile device id
+  leaveRequestId String?               @map("leave_request_id") @db.Uuid // approved leave that produced status ON_LEAVE
+  remark         String?               @db.VarChar(255)
+  markedById     String?               @map("marked_by_id") @db.Uuid // User id (audit only, no FK); null for device punches
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus        @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  staff        Staff         @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, staffId, date])
+  @@index([organizationId, campusId, date, status])
+  @@map("staff_attendance")
+}
+
+// Kind of staff leave: Casual, Sick, Earned, Maternity, Loss of Pay.
+model LeaveType {
+  id                   String       @id @default(uuid()) @db.Uuid
+  organizationId       String       @map("organization_id") @db.Uuid
+  name                 String       @db.VarChar(80)
+  code                 String       @db.VarChar(10) // CL, SL, EL, LOP
+  isPaid               Boolean      @default(true) @map("is_paid") // unpaid leave reduces salary in Payroll
+  allowHalfDay         Boolean      @default(true) @map("allow_half_day")
+  isCompOff            Boolean      @default(false) @map("is_comp_off") // compensatory off earned by working on a holiday / exam duty
+  requiresDocumentDays Int?         @map("requires_document_days") @db.SmallInt // attachment needed when the leave is longer than this many days
+  color                String?      @db.VarChar(7)
+  status               RecordStatus @default(ACTIVE)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  policies     LeavePolicy[]
+  balances     LeaveBalance[]
+  requests     LeaveRequest[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@map("leave_types")
+}
+
+// Entitlement rule for a leave type: quota, accrual, carry-forward, who it applies to.
+model LeavePolicy {
+  id                  String          @id @default(uuid()) @db.Uuid
+  organizationId      String          @map("organization_id") @db.Uuid
+  leaveTypeId         String          @map("leave_type_id") @db.Uuid
+  name                String          @db.VarChar(120)
+  staffType           StaffType?      @map("staff_type") // null = all staff
+  employmentType      EmploymentType? @map("employment_type") // null = all employment types
+  genderRestriction   Gender?         @map("gender_restriction") // e.g. FEMALE for maternity leave
+  annualQuota         Decimal         @map("annual_quota") @db.Decimal(5, 1) // days per academic year
+  accrual             LeaveAccrual    @default(YEARLY_UPFRONT)
+  carryForwardAllowed Boolean         @default(false) @map("carry_forward_allowed")
+  maxCarryForward     Decimal?        @map("max_carry_forward") @db.Decimal(5, 1)
+  isEncashable        Boolean         @default(false) @map("is_encashable")
+  maxConsecutiveDays  Int?            @map("max_consecutive_days") @db.SmallInt
+  minNoticeDays       Int             @default(0) @map("min_notice_days") @db.SmallInt
+  appliesInProbation  Boolean         @default(true) @map("applies_in_probation")
+  approvalLevels      Int             @default(1) @map("approval_levels") @db.SmallInt // 1 = manager only, 2 = manager then principal ...
+  effectiveFrom       DateTime        @map("effective_from") @db.Date
+  effectiveTo         DateTime?       @map("effective_to") @db.Date
+  status              RecordStatus    @default(ACTIVE)
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, leaveTypeId, status])
+  @@index([organizationId, staffType, status])
+  @@map("leave_policies")
+}
+
+// Leave balance of one staff member for one leave type in one academic year.
+// Available = opening + carriedForward + accrued + adjusted - used - pending - encashed - lapsed.
+model LeaveBalance {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  staffId        String   @map("staff_id") @db.Uuid
+  leaveTypeId    String   @map("leave_type_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  opening        Decimal  @default(0) @db.Decimal(5, 1)
+  carriedForward Decimal  @default(0) @map("carried_forward") @db.Decimal(5, 1)
+  accrued        Decimal  @default(0) @db.Decimal(5, 1)
+  adjusted       Decimal  @default(0) @db.Decimal(5, 1) // manual corrections (+/-), always audited
+  used           Decimal  @default(0) @db.Decimal(5, 1) // approved leave days
+  pending        Decimal  @default(0) @db.Decimal(5, 1) // days in requests awaiting approval
+  encashed       Decimal  @default(0) @db.Decimal(5, 1) // days paid out through payroll (LEAVE_ENCASHMENT adjustment)
+  lapsed         Decimal  @default(0) @db.Decimal(5, 1) // days lost at year end
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, staffId, leaveTypeId, academicYearId])
+  @@index([organizationId, academicYearId, leaveTypeId])
+  @@map("leave_balances")
+}
+
+// Staff leave application; approvals are tracked level by level in LeaveApprovalStep.
+model LeaveRequest {
+  id                   String          @id @default(uuid()) @db.Uuid
+  organizationId       String          @map("organization_id") @db.Uuid
+  campusId             String          @map("campus_id") @db.Uuid
+  staffId              String          @map("staff_id") @db.Uuid
+  leaveTypeId          String          @map("leave_type_id") @db.Uuid
+  academicYearId       String          @map("academic_year_id") @db.Uuid
+  startDate            DateTime        @map("start_date") @db.Date
+  endDate              DateTime        @map("end_date") @db.Date
+  startHalf            HalfDaySession? @map("start_half") // set when the first day is a half day
+  endHalf              HalfDaySession? @map("end_half") // set when the last day is a half day
+  totalDays            Decimal         @map("total_days") @db.Decimal(4, 1) // working days, excluding holidays and weekly offs
+  reason               String          @db.VarChar(1000)
+  workedOnDate         DateTime?       @map("worked_on_date") @db.Date // comp-off: the holiday / Sunday that was worked
+  attachmentFileId     String?         @map("attachment_file_id") @db.Uuid // medical certificate etc.
+  contactDuringLeave   String?         @map("contact_during_leave") @db.VarChar(20)
+  substituteStaffId    String?         @map("substitute_staff_id") @db.Uuid // suggested substitute teacher
+  status               ApprovalStatus  @default(PENDING)
+  currentApprovalLevel Int             @default(1) @map("current_approval_level") @db.SmallInt // level waiting for action
+  decidedById          String?         @map("decided_by_id") @db.Uuid // User who gave the final decision
+  decidedAt            DateTime?       @map("decided_at") @db.Timestamptz(6)
+  cancelledAt          DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason         String?         @map("cancel_reason") @db.VarChar(255)
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus          Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  staff           Staff               @relation("LeaveRequestStaff", fields: [staffId], references: [id], onDelete: Restrict)
+  substituteStaff Staff?              @relation("LeaveRequestSubstitute", fields: [substituteStaffId], references: [id], onDelete: SetNull)
+  leaveType       LeaveType           @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  academicYear    AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  attachmentFile  FileAsset?          @relation(fields: [attachmentFileId], references: [id], onDelete: SetNull)
+  decidedBy       User?               @relation(fields: [decidedById], references: [id], onDelete: SetNull)
+  approvalSteps   LeaveApprovalStep[]
+  staffAttendance StaffAttendance[]
+  substitutions   Substitution[]
+
+  @@index([organizationId, staffId, startDate])
+  @@index([organizationId, campusId, status, startDate])
+  @@index([organizationId, academicYearId, leaveTypeId])
+  @@map("leave_requests")
+}
+
+// One level of the approval chain of a staff leave request.
+model LeaveApprovalStep {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  leaveRequestId String         @map("leave_request_id") @db.Uuid
+  level          Int            @db.SmallInt // 1 = first approver
+  approverId     String         @map("approver_id") @db.Uuid // User expected to act at this level
+  status         ApprovalStatus @default(PENDING)
+  remarks        String?        @db.VarChar(500)
+  actedAt        DateTime?      @map("acted_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  approver     User         @relation(fields: [approverId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, leaveRequestId, level])
+  @@index([organizationId, approverId, status]) // "my pending approvals"
+  @@map("leave_approval_steps")
+}
+
+// Leave application for a student, raised by a parent in the Parent Portal (or by staff on their behalf).
+model StudentLeaveRequest {
+  id                    String               @id @default(uuid()) @db.Uuid
+  organizationId        String               @map("organization_id") @db.Uuid
+  campusId              String               @map("campus_id") @db.Uuid
+  studentId             String               @map("student_id") @db.Uuid
+  batchId               String?              @map("batch_id") @db.Uuid // batch at the time of the request; routes it to the class teacher
+  requestedByGuardianId String?              @map("requested_by_guardian_id") @db.Uuid
+  requestedByUserId     String?              @map("requested_by_user_id") @db.Uuid // login that submitted the request
+  category              StudentLeaveCategory @default(OTHER)
+  startDate             DateTime             @map("start_date") @db.Date
+  endDate               DateTime             @map("end_date") @db.Date
+  startHalf             HalfDaySession?      @map("start_half") // set when the first day is a half day
+  endHalf               HalfDaySession?      @map("end_half")
+  totalDays             Decimal?             @map("total_days") @db.Decimal(4, 1)
+  pickupGuardianId      String?              @map("pickup_guardian_id") @db.Uuid // who collects the child for an early-leave request
+  reason                String               @db.VarChar(1000)
+  attachmentFileId      String?              @map("attachment_file_id") @db.Uuid
+  status                ApprovalStatus       @default(PENDING)
+  reviewedById          String?              @map("reviewed_by_id") @db.Uuid
+  reviewedAt            DateTime?            @map("reviewed_at") @db.Timestamptz(6)
+  reviewRemarks         String?              @map("review_remarks") @db.VarChar(500)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?            @map("deleted_at") @db.Timestamptz(6)
+
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus              Campus             @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  student             Student            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  batch               Batch?             @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  requestedByGuardian Guardian?          @relation("StudentLeaveRequestedByGuardian", fields: [requestedByGuardianId], references: [id], onDelete: SetNull)
+  pickupGuardian      Guardian?          @relation("StudentLeavePickupGuardian", fields: [pickupGuardianId], references: [id], onDelete: SetNull)
+  requestedByUser     User?              @relation("StudentLeaveRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy          User?              @relation("StudentLeaveReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  attachmentFile      FileAsset?         @relation(fields: [attachmentFileId], references: [id], onDelete: SetNull)
+  attendanceRecords   AttendanceRecord[]
+
+  @@index([organizationId, studentId, startDate])
+  @@index([organizationId, campusId, status, startDate])
+  @@index([organizationId, batchId, status])
+  @@map("student_leave_requests")
+}

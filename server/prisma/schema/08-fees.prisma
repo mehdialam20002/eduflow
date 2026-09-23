@@ -1,0 +1,838 @@
+// 08-fees: fee heads, fee structures and installments, student fee assignments, invoices,
+// late-fee rules, discounts, scholarships (scheme -> application -> award -> disbursement) and reminder log.
+
+enum FeeHeadType {
+  TUITION
+  ADMISSION
+  REGISTRATION
+  TRANSPORT
+  HOSTEL
+  EXAM
+  LIBRARY
+  LAB
+  ACTIVITY
+  UNIFORM
+  BOOKS
+  CAUTION_DEPOSIT // refundable security / caution money (school or hostel)
+  FINE
+  ARREARS // previous-year dues carried forward
+  MESS // hostel mess charges
+  CHEQUE_BOUNCE_CHARGE
+  CERTIFICATE
+  MISCELLANEOUS
+}
+
+// How a supply is treated for tax. Most education fees are EXEMPT; coaching in India is TAXABLE; UAE education is ZERO_RATED.
+enum TaxTreatment {
+  TAXABLE
+  EXEMPT
+  NIL_RATED
+  ZERO_RATED
+  OUT_OF_SCOPE
+}
+
+enum TaxType {
+  GST
+  VAT
+  SALES_TAX
+  NONE
+}
+
+// Which students a fee structure item is charged to.
+enum FeeApplicability {
+  ALL_STUDENTS
+  NEW_ADMISSIONS_ONLY // admission fee, registration fee, caution deposit
+  EXISTING_STUDENTS_ONLY
+}
+
+// Credit / debit note types for an issued invoice; the sign of the amount comes from the type.
+enum FeeAdjustmentType {
+  CONCESSION // credit
+  WAIVER // credit
+  LATE_FEE_WAIVER // credit
+  DEBIT_CORRECTION // debit
+  CREDIT_CORRECTION // credit
+  PARTIAL_WRITE_OFF // credit
+}
+
+enum FeeFrequency {
+  ONE_TIME
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+enum FeeAssignmentStatus {
+  ACTIVE
+  PAUSED // invoicing on hold (long leave)
+  ENDED // student left or the year closed
+  CANCELLED
+}
+
+enum FeeInvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  WRITTEN_OFF
+  CARRIED_FORWARD // closed old-year invoice whose balance moved to an ARREARS invoice of the new session
+}
+
+enum LateFeeCalculation {
+  FIXED_ONCE // one flat amount after the grace period
+  FIXED_PER_DAY
+  FIXED_PER_MONTH
+  PERCENT_OF_BALANCE // one-time % of the unpaid balance
+  PERCENT_PER_MONTH
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum DiscountCategory {
+  SIBLING
+  EARLY_BIRD
+  STAFF_CHILD
+  MERIT
+  FULL_PAYMENT // pays the whole year upfront
+  REFERRAL
+  FINANCIAL_AID
+  PROMOTIONAL
+  CUSTOM
+}
+
+enum DiscountScope {
+  INVOICE_TOTAL // applies to the whole invoice subtotal
+  FEE_HEADS // applies only to the fee heads listed in feeHeadIds
+}
+
+enum ScholarshipFundingSource {
+  INSTITUTE
+  GOVERNMENT
+  TRUST
+  DONOR
+  CORPORATE_CSR
+}
+
+enum ScholarshipStatus {
+  DRAFT
+  OPEN // accepting applications
+  CLOSED
+  ARCHIVED
+}
+
+// Lifecycle: DRAFT -> SUBMITTED -> UNDER_REVIEW -> SHORTLISTED -> APPROVED -> AWARDED, or REJECTED / WITHDRAWN.
+enum ScholarshipApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  SHORTLISTED
+  APPROVED
+  AWARDED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ScholarshipAwardStatus {
+  ACTIVE
+  FULLY_DISBURSED
+  SUSPENDED
+  REVOKED
+  EXPIRED
+}
+
+enum FeeReminderType {
+  UPCOMING_DUE
+  DUE_TODAY
+  OVERDUE
+  FINAL_NOTICE
+  MANUAL
+}
+
+// Kind of charge: Tuition, Transport, Hostel, Exam ... with tax settings.
+model FeeHead {
+  id                 String       @id @default(uuid()) @db.Uuid
+  organizationId     String       @map("organization_id") @db.Uuid
+  name               String       @db.VarChar(100)
+  code               String       @db.VarChar(30)
+  headType           FeeHeadType  @default(TUITION) @map("head_type")
+  description        String?      @db.VarChar(255)
+  isTaxable          Boolean      @default(false) @map("is_taxable") // most education fees are tax exempt; uniform / books may not be
+  taxRate            Decimal      @default(0) @map("tax_rate") @db.Decimal(5, 2) // percent, used only when isTaxable and taxRateId is null
+  taxRateId          String?      @map("tax_rate_id") @db.Uuid // effective-dated rate with components (CGST + SGST / IGST); wins over taxRate
+  taxTreatment       TaxTreatment @default(EXEMPT) @map("tax_treatment")
+  isTaxInclusive     Boolean      @default(false) @map("is_tax_inclusive") // price already includes tax (Australia GST)
+  taxCode            String?      @map("tax_code") @db.VarChar(20) // HSN / SAC master value; frozen onto each invoice line
+  settlementPriority Int          @default(0) @map("settlement_priority") // lower = settled first when a partial payment is split over heads
+  isRefundable       Boolean      @default(false) @map("is_refundable") // e.g. caution deposit
+  accountCode        String?      @map("account_code") @db.VarChar(30) // ledger code for accounting exports
+  sortOrder          Int          @default(0) @map("sort_order")
+  status             RecordStatus @default(ACTIVE)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  taxRateRef             TaxRate?                @relation(fields: [taxRateId], references: [id], onDelete: Restrict)
+  structureItems         FeeStructureItem[]
+  invoiceItems           FeeInvoiceItem[]
+  paymentAllocationItems PaymentAllocationItem[]
+  refunds                Refund[]
+  inventoryItems         InventoryItem[]
+  transportAssignments   TransportAssignment[]
+  hostelAllocations      HostelAllocation[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, headType, status])
+  @@map("fee_heads")
+}
+
+// Effective-dated tax rate with components: GST 18 % = CGST 9 + SGST 9 (intra-state) or IGST 18 (inter-state); VAT 5 %; US state sales tax.
+model TaxRate {
+  id                   String       @id @default(uuid()) @db.Uuid
+  organizationId       String       @map("organization_id") @db.Uuid
+  campusId             String?      @map("campus_id") @db.Uuid // null = every campus
+  name                 String       @db.VarChar(80) // "GST 18%"
+  countryCode          String       @map("country_code") @db.Char(2)
+  region               String?      @db.VarChar(10) // state code for per-state rates
+  taxType              TaxType      @map("tax_type")
+  ratePercent          Decimal      @map("rate_percent") @db.Decimal(5, 2)
+  components           Json? // [{ code: "CGST", percent: 9 }, { code: "SGST", percent: 9 }]
+  interStateComponents Json?        @map("inter_state_components") // [{ code: "IGST", percent: 18 }]
+  validFrom            DateTime     @map("valid_from") @db.Date
+  validTo              DateTime?    @map("valid_to") @db.Date
+  status               RecordStatus @default(ACTIVE)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  feeHeads     FeeHead[]
+
+  @@unique([organizationId, name, validFrom])
+  @@index([organizationId, countryCode, region, status])
+  @@map("tax_rates")
+}
+
+// Fee plan for a course (optionally one batch) in an academic year.
+model FeeStructure {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  campusId       String?      @map("campus_id") @db.Uuid // null = same plan at every campus
+  campusKey      String       @default("ALL") @map("campus_key") @db.VarChar(36) // "ALL" or the campusId; makes the unique key work without NULLs
+  academicYearId String       @map("academic_year_id") @db.Uuid
+  courseId       String?      @map("course_id") @db.Uuid // null = generic plan (e.g. transport only)
+  batchId        String?      @map("batch_id") @db.Uuid // set only when one batch has its own plan
+  lateFeeRuleId  String?      @map("late_fee_rule_id") @db.Uuid
+  name           String       @db.VarChar(120)
+  description    String?      @db.VarChar(500)
+  currency       String       @db.Char(3)
+  totalAmount    Decimal      @default(0) @map("total_amount") @db.Decimal(12, 2) // cached yearly total of all items
+  status         RecordStatus @default(ACTIVE)
+  createdById    String?      @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus?                @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  course       Course?                @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  batch        Batch?                 @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  lateFeeRule  LateFeeRule?           @relation(fields: [lateFeeRuleId], references: [id], onDelete: SetNull)
+  items        FeeStructureItem[]
+  installments FeeInstallment[]
+  assignments  StudentFeeAssignment[]
+
+  @@unique([organizationId, academicYearId, campusKey, name]) // two campuses may each have "Class 10 Fees 2027-28"
+  @@index([organizationId, academicYearId, courseId, status])
+  @@index([organizationId, campusId, academicYearId])
+  @@index([organizationId, batchId])
+  @@map("fee_structures")
+}
+
+// One fee head inside a fee structure with its amount and billing frequency.
+model FeeStructureItem {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @map("organization_id") @db.Uuid
+  feeStructureId    String            @map("fee_structure_id") @db.Uuid
+  feeHeadId         String            @map("fee_head_id") @db.Uuid
+  amount            Decimal           @db.Decimal(12, 2) // amount per frequency period, before tax
+  frequency         FeeFrequency      @default(ONE_TIME)
+  isOptional        Boolean           @default(false) @map("is_optional") // e.g. transport; added per student in the assignment
+  applicability     FeeApplicability  @default(ALL_STUDENTS) // admission fee / caution deposit: NEW_ADMISSIONS_ONLY
+  installmentNos    Int[]             @map("installment_nos") // installments that carry this head; empty = spread by frequency
+  studentCategories StudentCategory[] @map("student_categories") // empty = every category
+  admissionQuotas   AdmissionQuota[]  @map("admission_quotas") // empty = every quota; e.g. exclude RTE / STAFF_WARD from a head
+  sortOrder         Int               @default(0) @map("sort_order")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feeStructure FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+  feeHead      FeeHead      @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, feeStructureId, feeHeadId])
+  @@index([organizationId, feeHeadId])
+  @@map("fee_structure_items")
+}
+
+// Payment schedule of a fee structure: installment 1 due 10 Apr, installment 2 due 10 Jul ...
+model FeeInstallment {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  feeStructureId String    @map("fee_structure_id") @db.Uuid
+  installmentNo  Int       @map("installment_no") @db.SmallInt
+  name           String    @db.VarChar(80) // "Quarter 1", "April 2027"
+  dueDate        DateTime  @map("due_date") @db.Date
+  periodStart    DateTime? @map("period_start") @db.Date
+  periodEnd      DateTime? @map("period_end") @db.Date
+  amount         Decimal   @db.Decimal(12, 2) // planned amount before student-level overrides and discounts
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feeStructure FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+  invoices     FeeInvoice[]
+
+  @@unique([organizationId, feeStructureId, installmentNo])
+  @@index([organizationId, dueDate])
+  @@map("fee_installments")
+}
+
+// A fee structure applied to one student for one academic year, with per-student overrides.
+model StudentFeeAssignment {
+  id                 String              @id @default(uuid()) @db.Uuid
+  organizationId     String              @map("organization_id") @db.Uuid
+  campusId           String              @map("campus_id") @db.Uuid
+  studentId          String              @map("student_id") @db.Uuid
+  enrollmentId       String?             @map("enrollment_id") @db.Uuid
+  academicYearId     String              @map("academic_year_id") @db.Uuid
+  feeStructureId     String              @map("fee_structure_id") @db.Uuid
+  status             FeeAssignmentStatus @default(ACTIVE)
+  startDate          DateTime            @map("start_date") @db.Date // mid-year joiners are billed from this date
+  endDate            DateTime?           @map("end_date") @db.Date
+  overrides          Json? // [{ feeHeadId, amount, reason }] amounts that replace the structure amounts
+  excludedFeeHeadIds String[]            @map("excluded_fee_head_ids") @db.Uuid // optional heads the student does not take
+  hasCustomSchedule  Boolean             @default(false) @map("has_custom_schedule") // true = StudentFeeInstallment rows replace the structure's installments
+  currency           String              @db.Char(3)
+  netYearlyAmount    Decimal?            @map("net_yearly_amount") @db.Decimal(12, 2) // cached total after overrides, before discounts
+  notes              String?             @db.VarChar(500)
+  assignedById       String?             @map("assigned_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?           @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus             Campus                  @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  student            Student                 @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  enrollment         Enrollment?             @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  academicYear       AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  feeStructure       FeeStructure            @relation(fields: [feeStructureId], references: [id], onDelete: Restrict)
+  invoices           FeeInvoice[]
+  customInstallments StudentFeeInstallment[]
+
+  // One live assignment per student + structure + year: partial unique index in the SQL migration,
+  // uq_student_fee_assignment_live (organization_id, student_id, fee_structure_id, academic_year_id) WHERE deleted_at IS NULL AND status <> 'CANCELLED'
+  @@index([organizationId, studentId, feeStructureId, academicYearId])
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, campusId, academicYearId, status])
+  @@index([organizationId, feeStructureId])
+  @@map("student_fee_assignments")
+}
+
+// Fee bill raised to a student for a period. Cached money columns (kept in the row for fast dues lists):
+//   total   = subtotal - discountTotal + taxTotal + lateFee + adjustmentTotal
+//   balance = total - scholarshipCredit - amountPaid - writtenOffAmount
+// Issued invoices are cancelled, never deleted; a corrected invoice points back with replacesInvoiceId.
+// One LIVE invoice per student per installment is enforced by a partial unique index in the SQL migration:
+//   uq_fee_invoice_installment (organization_id, student_id, assignment_id, installment_id) WHERE status <> 'CANCELLED' AND deleted_at IS NULL
+model FeeInvoice {
+  id                   String           @id @default(uuid()) @db.Uuid
+  organizationId       String           @map("organization_id") @db.Uuid
+  campusId             String           @map("campus_id") @db.Uuid
+  academicYearId       String           @map("academic_year_id") @db.Uuid
+  studentId            String           @map("student_id") @db.Uuid
+  assignmentId         String?          @map("assignment_id") @db.Uuid // null for ad-hoc invoices (fine, certificate fee)
+  installmentId        String?          @map("installment_id") @db.Uuid
+  invoiceNo            String           @map("invoice_no") @db.VarChar(40) // from NumberSequence FEE_INVOICE_NO; max 16 chars when the issuer is GST-registered (India)
+  replacesInvoiceId    String?          @map("replaces_invoice_id") @db.Uuid // cancelled invoice that this one corrects
+  carriedFromInvoiceId String?          @unique @map("carried_from_invoice_id") @db.Uuid // old-year invoice whose balance this ARREARS invoice carries
+  title                String?          @db.VarChar(150) // "Quarter 1 fees 2027-28"
+  periodStart          DateTime?        @map("period_start") @db.Date
+  periodEnd            DateTime?        @map("period_end") @db.Date
+  issueDate            DateTime         @map("issue_date") @db.Date
+  dueDate              DateTime         @map("due_date") @db.Date
+  currency             String           @db.Char(3)
+  subtotal             Decimal          @db.Decimal(12, 2) // sum of item amounts
+  discountTotal        Decimal          @default(0) @map("discount_total") @db.Decimal(12, 2) // discounts applied at issue (scholarship money is in scholarshipCredit)
+  taxTotal             Decimal          @default(0) @map("tax_total") @db.Decimal(12, 2)
+  taxBreakdown         Json?            @map("tax_breakdown") // invoice-level totals per tax component: [{ code: CGST|SGST|IGST|GST|VAT|SALES_TAX, percent, amount }]
+  isTaxInclusive       Boolean          @default(false) @map("is_tax_inclusive")
+  sellerTaxId          String?          @map("seller_tax_id") @db.VarChar(30) // campus / organization GSTIN / ABN / TRN frozen at issue
+  buyerTaxId           String?          @map("buyer_tax_id") @db.VarChar(30) // payer GSTIN for B2B invoices
+  placeOfSupply        String?          @map("place_of_supply") @db.VarChar(10) // GST state code / US state / emirate
+  lateFee              Decimal          @default(0) @map("late_fee") @db.Decimal(12, 2)
+  adjustmentTotal      Decimal          @default(0) @map("adjustment_total") @db.Decimal(12, 2) // signed net of APPROVED FeeInvoiceAdjustment rows (credits negative)
+  total                Decimal          @db.Decimal(12, 2) // subtotal - discountTotal + taxTotal + lateFee + adjustmentTotal
+  scholarshipCredit    Decimal          @default(0) @map("scholarship_credit") @db.Decimal(12, 2) // sum of active ScholarshipDisbursement rows
+  amountPaid           Decimal          @default(0) @map("amount_paid") @db.Decimal(12, 2) // sum of active PaymentAllocation rows minus refunds
+  writtenOffAmount     Decimal          @default(0) @map("written_off_amount") @db.Decimal(12, 2)
+  balance              Decimal          @db.Decimal(12, 2) // total - scholarshipCredit - amountPaid - writtenOffAmount
+  status               FeeInvoiceStatus @default(DRAFT)
+  appliedDiscounts     Json?            @map("applied_discounts") // [{ studentDiscountId | scholarshipAwardId, name, amount }]
+  lateFeeAppliedAt     DateTime?        @map("late_fee_applied_at") @db.Timestamptz(6)
+  lateFeeWaived        Boolean          @default(false) @map("late_fee_waived")
+  lateFeeWaivedAmount  Decimal          @default(0) @map("late_fee_waived_amount") @db.Decimal(12, 2)
+  lateFeeWaivedById    String?          @map("late_fee_waived_by_id") @db.Uuid // User id (audit only, no FK)
+  lateFeeWaivedAt      DateTime?        @map("late_fee_waived_at") @db.Timestamptz(6)
+  lateFeeWaiveReason   String?          @map("late_fee_waive_reason") @db.VarChar(255)
+  lastReminderAt       DateTime?        @map("last_reminder_at") @db.Timestamptz(6)
+  reminderCount        Int              @default(0) @map("reminder_count")
+  paidAt               DateTime?        @map("paid_at") @db.Timestamptz(6) // when the balance reached zero
+  cancelledAt          DateTime?        @map("cancelled_at") @db.Timestamptz(6)
+  cancelledById        String?          @map("cancelled_by_id") @db.Uuid // User id (audit only, no FK)
+  cancelReason         String?          @map("cancel_reason") @db.VarChar(255)
+  writtenOffAt         DateTime?        @map("written_off_at") @db.Timestamptz(6)
+  writeOffReason       String?          @map("write_off_reason") @db.VarChar(255)
+  writtenOffById       String?          @map("written_off_by_id") @db.Uuid // User id (audit only, no FK)
+  creditNoteNo         String?          @map("credit_note_no") @db.VarChar(40) // GST credit note raised when an issued taxable invoice is cancelled (NumberSequence CREDIT_NOTE_NO)
+  creditNoteDate       DateTime?        @map("credit_note_date") @db.Date
+  notes                String?          @db.VarChar(500)
+  pdfFileId            String?          @map("pdf_file_id") @db.Uuid
+  createdById          String?          @map("created_by_id") @db.Uuid // User id (audit only, no FK); null when generated by the worker
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?        @map("deleted_at") @db.Timestamptz(6) // only DRAFT invoices may be deleted; issued ones are cancelled
+
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus                   Campus                    @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear             AcademicYear              @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  student                  Student                   @relation(fields: [studentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK: same tenant guaranteed by the database
+  assignment               StudentFeeAssignment?     @relation(fields: [assignmentId], references: [id], onDelete: Restrict) // never strip the link from an issued invoice
+  installment              FeeInstallment?           @relation(fields: [installmentId], references: [id], onDelete: Restrict)
+  pdfFile                  FileAsset?                @relation(fields: [pdfFileId], references: [id], onDelete: SetNull)
+  replacesInvoice          FeeInvoice?               @relation("FeeInvoiceReplacement", fields: [replacesInvoiceId], references: [id], onDelete: SetNull)
+  replacedBy               FeeInvoice[]              @relation("FeeInvoiceReplacement")
+  carriedFromInvoice       FeeInvoice?               @relation("FeeInvoiceCarryForward", fields: [carriedFromInvoiceId], references: [id], onDelete: SetNull)
+  carriedToInvoice         FeeInvoice?               @relation("FeeInvoiceCarryForward")
+  items                    FeeInvoiceItem[]
+  adjustments              FeeInvoiceAdjustment[]
+  customInstallment        StudentFeeInstallment?
+  scholarshipDisbursements ScholarshipDisbursement[]
+  reminderLogs             FeeReminderLog[]
+  paymentAllocations       PaymentAllocation[]
+  bookIssues               BookIssue[]
+  certificateRequests      CertificateRequest[]
+  bouncedPayments          Payment[]                 @relation("PaymentBounceChargeInvoice") // cheque payments whose bounce charge this invoice bills
+  examReEvaluationRequests ExamReEvaluationRequest[]
+  refunds                  Refund[]
+  refundAllocations        RefundAllocation[]
+  stockTransactions        StockTransaction[]
+
+  @@unique([id, organizationId]) // target of composite tenant-safe foreign keys
+  @@unique([organizationId, invoiceNo])
+  @@unique([organizationId, creditNoteNo])
+  @@index([organizationId, studentId, assignmentId, installmentId]) // uniqueness of LIVE rows: partial unique index (see model comment)
+  @@index([organizationId, assignmentId])
+  @@index([organizationId, installmentId]) // FK check and "invoices of installment X" worker query
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, campusId, status, dueDate])
+  @@index([organizationId, academicYearId, status])
+  @@index([organizationId, status, dueDate]) // overdue and late-fee worker
+  @@index([organizationId, campusId, issueDate])
+  @@map("fee_invoices")
+}
+
+// One line of a fee invoice (a fee head with amount, discount and tax).
+model FeeInvoiceItem {
+  id                    String       @id @default(uuid()) @db.Uuid
+  organizationId        String       @map("organization_id") @db.Uuid
+  invoiceId             String       @map("invoice_id") @db.Uuid
+  feeHeadId             String       @map("fee_head_id") @db.Uuid
+  description           String?      @db.VarChar(200)
+  amount                Decimal      @db.Decimal(12, 2) // before discount and tax
+  discountAmount        Decimal      @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  taxTreatment          TaxTreatment @default(EXEMPT) @map("tax_treatment") // frozen from FeeHead at issue
+  taxCode               String?      @map("tax_code") @db.VarChar(20) // HSN / SAC snapshot from FeeHead
+  taxableAmount         Decimal      @default(0) @map("taxable_amount") @db.Decimal(12, 2) // amount - discountAmount when TAXABLE
+  taxRate               Decimal      @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount             Decimal      @default(0) @map("tax_amount") @db.Decimal(12, 2) // sum of the components in taxBreakdown
+  taxBreakdown          Json?        @map("tax_breakdown") // [{ code: CGST|SGST|IGST|GST|VAT|SALES_TAX, percent, amount }]
+  netAmount             Decimal      @map("net_amount") @db.Decimal(12, 2) // amount - discountAmount + taxAmount
+  amountPaid            Decimal      @default(0) @map("amount_paid") @db.Decimal(12, 2) // sum of active PaymentAllocationItem rows; updated in the same transaction (head-wise collection)
+  amountRefunded        Decimal      @default(0) @map("amount_refunded") @db.Decimal(12, 2)
+  transportAssignmentId String?      @map("transport_assignment_id") @db.Uuid // transport line: the assignment it bills
+  hostelAllocationId    String?      @map("hostel_allocation_id") @db.Uuid // hostel line: the allocation it bills
+  periodStart           DateTime?    @map("period_start") @db.Date // billed period of a recurring line (prevents double billing)
+  periodEnd             DateTime?    @map("period_end") @db.Date
+  sortOrder             Int          @default(0) @map("sort_order")
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice                FeeInvoice              @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK; the service deletes items explicitly when a DRAFT is discarded
+  feeHead                FeeHead                 @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+  transportAssignment    TransportAssignment?    @relation(fields: [transportAssignmentId], references: [id], onDelete: SetNull)
+  hostelAllocation       HostelAllocation?       @relation(fields: [hostelAllocationId], references: [id], onDelete: SetNull)
+  adjustments            FeeInvoiceAdjustment[]
+  paymentAllocationItems PaymentAllocationItem[]
+
+  @@index([organizationId, invoiceId, sortOrder])
+  @@index([organizationId, feeHeadId]) // head-wise collection report
+  @@index([organizationId, transportAssignmentId])
+  @@index([organizationId, hostelAllocationId])
+  @@map("fee_invoice_items")
+}
+
+// Approved change to an issued invoice (credit / debit note): post-issue concession, late-fee waiver, correction, partial write-off.
+model FeeInvoiceAdjustment {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  campusId       String            @map("campus_id") @db.Uuid
+  invoiceId      String            @map("invoice_id") @db.Uuid
+  invoiceItemId  String?           @map("invoice_item_id") @db.Uuid // set when the adjustment targets one fee head line
+  studentId      String            @map("student_id") @db.Uuid
+  adjustmentType FeeAdjustmentType @map("adjustment_type")
+  amount         Decimal           @db.Decimal(12, 2) // always positive; the sign comes from the type
+  currency       String            @db.Char(3)
+  reason         String            @db.VarChar(500)
+  status         ApprovalStatus    @default(PENDING) // only APPROVED rows change FeeInvoice.adjustmentTotal
+  requestedById  String?           @map("requested_by_id") @db.Uuid // User id (audit only, no FK)
+  approvedById   String?           @map("approved_by_id") @db.Uuid
+  approvedAt     DateTime?         @map("approved_at") @db.Timestamptz(6)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus          @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  invoice      FeeInvoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK
+  invoiceItem  FeeInvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: SetNull)
+  student      Student         @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  approvedBy   User?           @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, campusId, status, createdAt]) // approval queue
+  @@index([organizationId, studentId])
+  @@map("fee_invoice_adjustments")
+}
+
+// Per-student payment schedule negotiated at the counter; replaces the structure's installments when hasCustomSchedule is true.
+model StudentFeeInstallment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  assignmentId   String   @map("assignment_id") @db.Uuid
+  installmentNo  Int      @map("installment_no") @db.SmallInt
+  name           String?  @db.VarChar(80)
+  dueDate        DateTime @map("due_date") @db.Date
+  amount         Decimal  @db.Decimal(12, 2)
+  currency       String   @db.Char(3)
+  invoiceId      String?  @unique @map("invoice_id") @db.Uuid // set once the invoice is generated; one invoice per installment
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignment   StudentFeeAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  invoice      FeeInvoice?          @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, assignmentId, installmentNo])
+  @@index([organizationId, dueDate]) // invoice and reminder workers
+  @@map("student_fee_installments")
+}
+
+// How the late fee is calculated after the due date.
+// One default rule per organization / campus is enforced by a partial unique index in the SQL migration (WHERE is_default AND deleted_at IS NULL).
+model LateFeeRule {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  campusId       String?            @map("campus_id") @db.Uuid // null = all campuses
+  name           String             @db.VarChar(100)
+  calculation    LateFeeCalculation
+  amount         Decimal?           @db.Decimal(12, 2) // for FIXED_* calculations
+  percent        Decimal?           @db.Decimal(5, 2) // for PERCENT_* calculations
+  currency       String             @db.Char(3)
+  graceDays      Int                @default(0) @map("grace_days") @db.SmallInt
+  maxAmount      Decimal?           @map("max_amount") @db.Decimal(12, 2) // cap per invoice
+  isDefault      Boolean            @default(false) @map("is_default") // used when a fee structure has no rule of its own
+  status         RecordStatus       @default(ACTIVE)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?          @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus        Campus?        @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  feeStructures FeeStructure[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, campusId, status])
+  @@map("late_fee_rules")
+}
+
+// Discount scheme: sibling, early-bird, staff child, merit ... percent or fixed.
+model Discount {
+  id               String           @id @default(uuid()) @db.Uuid
+  organizationId   String           @map("organization_id") @db.Uuid
+  name             String           @db.VarChar(100)
+  code             String           @db.VarChar(30)
+  category         DiscountCategory
+  discountType     DiscountType     @map("discount_type")
+  value            Decimal          @db.Decimal(12, 2) // percent (0-100) or fixed amount, by discountType
+  currency         String?          @db.Char(3) // FIXED discounts only
+  maxAmount        Decimal?         @map("max_amount") @db.Decimal(12, 2) // cap for PERCENT discounts
+  scope            DiscountScope    @default(INVOICE_TOTAL)
+  feeHeadIds       String[]         @map("fee_head_ids") @db.Uuid // used when scope is FEE_HEADS
+  courseIds        String[]         @map("course_ids") @db.Uuid // empty = every course
+  criteria         Json? // auto-apply rules, e.g. { siblingIndex: 2 } or { payBeforeDays: 15 }
+  validFrom        DateTime?        @map("valid_from") @db.Date
+  validTo          DateTime?        @map("valid_to") @db.Date
+  isStackable      Boolean          @default(false) @map("is_stackable") // may combine with other discounts
+  priority         Int              @default(0) // order of application when stacked; lower first
+  requiresApproval Boolean          @default(true) @map("requires_approval")
+  status           RecordStatus     @default(ACTIVE)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  studentDiscounts StudentDiscount[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, category, status])
+  @@map("discounts")
+}
+
+// A discount granted to one student for an academic year, with approval.
+model StudentDiscount {
+  id               String         @id @default(uuid()) @db.Uuid
+  organizationId   String         @map("organization_id") @db.Uuid
+  campusId         String         @map("campus_id") @db.Uuid // student's campus at grant time; scopes the approval queue for ACCOUNTANT / PRINCIPAL
+  studentId        String         @map("student_id") @db.Uuid
+  discountId       String         @map("discount_id") @db.Uuid
+  academicYearId   String         @map("academic_year_id") @db.Uuid
+  siblingStudentId String?        @map("sibling_student_id") @db.Uuid // sibling that qualifies the student for a SIBLING discount; revoke when that sibling leaves
+  valueOverride    Decimal?       @map("value_override") @db.Decimal(12, 2) // replaces Discount.value for this student
+  reason           String?        @db.VarChar(500)
+  status           ApprovalStatus @default(PENDING)
+  validFrom        DateTime?      @map("valid_from") @db.Date
+  validTo          DateTime?      @map("valid_to") @db.Date
+  requestedById    String?        @map("requested_by_id") @db.Uuid // User id (audit only, no FK)
+  approvedById     String?        @map("approved_by_id") @db.Uuid // User who approved or rejected
+  approvedAt       DateTime?      @map("approved_at") @db.Timestamptz(6)
+  rejectionReason  String?        @map("rejection_reason") @db.VarChar(255)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus         Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  student        Student      @relation("StudentDiscountStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  siblingStudent Student?     @relation("StudentDiscountSibling", fields: [siblingStudentId], references: [id], onDelete: SetNull)
+  discount       Discount     @relation(fields: [discountId], references: [id], onDelete: Restrict)
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  approvedBy     User?        @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  // One live grant per student + discount + year: partial unique index in the SQL migration,
+  // uq_student_discount_live (organization_id, student_id, discount_id, academic_year_id) WHERE deleted_at IS NULL AND status IN ('PENDING','APPROVED')
+  @@index([organizationId, studentId, discountId, academicYearId])
+  @@index([organizationId, campusId, status, createdAt]) // approval queue per campus
+  @@index([organizationId, status, createdAt]) // approval queue
+  @@index([organizationId, discountId])
+  @@map("student_discounts")
+}
+
+// Scholarship scheme with funding source, eligibility criteria, seats and value.
+model Scholarship {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  organizationId       String                   @map("organization_id") @db.Uuid
+  academicYearId       String?                  @map("academic_year_id") @db.Uuid // null = runs every year
+  name                 String                   @db.VarChar(150)
+  code                 String                   @db.VarChar(30)
+  schemeName           String?                  @map("scheme_name") @db.VarChar(150) // official scheme, e.g. a state post-matric scholarship
+  description          String?                  @db.Text
+  fundingSource        ScholarshipFundingSource @default(INSTITUTE) @map("funding_source")
+  funderName           String?                  @map("funder_name") @db.VarChar(150)
+  valueType            DiscountType             @map("value_type") // PERCENT of fees or FIXED amount
+  amount               Decimal?                 @db.Decimal(12, 2) // FIXED value per student per year
+  percent              Decimal?                 @db.Decimal(5, 2) // PERCENT value
+  currency             String                   @db.Char(3)
+  maxAmountPerStudent  Decimal?                 @map("max_amount_per_student") @db.Decimal(12, 2)
+  feeHeadIds           String[]                 @map("fee_head_ids") @db.Uuid // heads the scholarship may pay; empty = all
+  criteria             Json? // { minPercentage, maxFamilyIncome, categories: [...], courseIds: [...] }
+  seats                Int? // null = unlimited
+  seatsAwarded         Int                      @default(0) @map("seats_awarded")
+  applicationStartDate DateTime?                @map("application_start_date") @db.Date
+  applicationEndDate   DateTime?                @map("application_end_date") @db.Date
+  isRenewable          Boolean                  @default(false) @map("is_renewable")
+  status               ScholarshipStatus        @default(DRAFT)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?                @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear?            @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  applications ScholarshipApplication[]
+  awards       ScholarshipAward[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status, applicationEndDate])
+  @@map("scholarships")
+}
+
+// A student's application to a scholarship with documents, score and review decision.
+model ScholarshipApplication {
+  id             String                       @id @default(uuid()) @db.Uuid
+  organizationId String                       @map("organization_id") @db.Uuid
+  campusId       String                       @map("campus_id") @db.Uuid
+  scholarshipId  String                       @map("scholarship_id") @db.Uuid
+  studentId      String                       @map("student_id") @db.Uuid
+  academicYearId String                       @map("academic_year_id") @db.Uuid
+  applicationNo  String                       @map("application_no") @db.VarChar(30)
+  status         ScholarshipApplicationStatus @default(DRAFT)
+  statement      String?                      @db.Text // why the student needs / deserves it
+  familyIncome   Decimal?                     @map("family_income") @db.Decimal(12, 2) // declared annual income
+  currency       String?                      @db.Char(3)
+  lastPercentage Decimal?                     @map("last_percentage") @db.Decimal(5, 2) // last exam result used for merit
+  documents      Json? // [{ type, title, fileId }] FileAsset ids of income / category / marksheet proofs
+  score          Decimal?                     @db.Decimal(6, 2) // committee score used for ranking
+  submittedAt    DateTime?                    @map("submitted_at") @db.Timestamptz(6)
+  submittedById  String?                      @map("submitted_by_id") @db.Uuid // User id of the parent or staff (audit only, no FK)
+  reviewedById   String?                      @map("reviewed_by_id") @db.Uuid
+  reviewedAt     DateTime?                    @map("reviewed_at") @db.Timestamptz(6)
+  reviewRemarks  String?                      @map("review_remarks") @db.VarChar(500)
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?                    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus            @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  scholarship  Scholarship       @relation(fields: [scholarshipId], references: [id], onDelete: Restrict)
+  student      Student           @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  reviewedBy   User?             @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+  award        ScholarshipAward?
+
+  @@unique([organizationId, applicationNo])
+  @@unique([organizationId, scholarshipId, studentId, academicYearId])
+  @@index([organizationId, scholarshipId, status, score])
+  @@index([organizationId, studentId])
+  @@index([organizationId, campusId, status])
+  @@map("scholarship_applications")
+}
+
+// Scholarship granted to a student for a year; money reaches invoices through ScholarshipDisbursement.
+model ScholarshipAward {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  organizationId     String                 @map("organization_id") @db.Uuid
+  campusId           String                 @map("campus_id") @db.Uuid
+  scholarshipId      String                 @map("scholarship_id") @db.Uuid
+  applicationId      String?                @unique @map("application_id") @db.Uuid // null when awarded directly without an application
+  studentId          String                 @map("student_id") @db.Uuid
+  academicYearId     String                 @map("academic_year_id") @db.Uuid
+  awardedAmount      Decimal                @map("awarded_amount") @db.Decimal(12, 2) // total value for the year
+  awardedPercent     Decimal?               @map("awarded_percent") @db.Decimal(5, 2) // when the scheme is PERCENT
+  disbursedAmount    Decimal                @default(0) @map("disbursed_amount") @db.Decimal(12, 2) // sum of active disbursements
+  currency           String                 @db.Char(3)
+  status             ScholarshipAwardStatus @default(ACTIVE)
+  awardedOn          DateTime               @map("awarded_on") @db.Date
+  validFrom          DateTime?              @map("valid_from") @db.Date
+  validTo            DateTime?              @map("valid_to") @db.Date
+  approvedById       String?                @map("approved_by_id") @db.Uuid
+  renewedFromAwardId String?                @unique @map("renewed_from_award_id") @db.Uuid // previous year's award that this one renews
+  revokedAt          DateTime?              @map("revoked_at") @db.Timestamptz(6)
+  revokeReason       String?                @map("revoke_reason") @db.VarChar(255)
+  notes              String?                @db.VarChar(500)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?              @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus           Campus                    @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  scholarship      Scholarship               @relation(fields: [scholarshipId], references: [id], onDelete: Restrict)
+  application      ScholarshipApplication?   @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  student          Student                   @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear     AcademicYear              @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  approvedBy       User?                     @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  renewedFromAward ScholarshipAward?         @relation("ScholarshipAwardRenewal", fields: [renewedFromAwardId], references: [id], onDelete: SetNull)
+  renewedByAward   ScholarshipAward?         @relation("ScholarshipAwardRenewal")
+  disbursements    ScholarshipDisbursement[]
+
+  @@unique([organizationId, scholarshipId, studentId, academicYearId])
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, campusId, academicYearId, status])
+  @@map("scholarship_awards")
+}
+
+// Part of a scholarship award: credited against a fee invoice (adds to FeeInvoice.scholarshipCredit), or paid by the
+// funder straight to the beneficiary (invoiceId null, paidToBeneficiary true).
+// A retried job cannot credit twice: partial unique index in the SQL migration,
+// uq_disbursement_active (organization_id, award_id, invoice_id) WHERE reversed_at IS NULL
+model ScholarshipDisbursement {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  campusId          String    @map("campus_id") @db.Uuid
+  awardId           String    @map("award_id") @db.Uuid
+  studentId         String    @map("student_id") @db.Uuid // denormalised from the award
+  invoiceId         String?   @map("invoice_id") @db.Uuid // null when the money did not go against an invoice
+  paidToBeneficiary Boolean   @default(false) @map("paid_to_beneficiary") // government / trust paid the student's or parent's bank account directly
+  paymentId         String?   @map("payment_id") @db.Uuid // Payment row created when the external funder pays the institute
+  amount            Decimal   @db.Decimal(12, 2)
+  currency          String    @db.Char(3)
+  disbursedOn       DateTime  @map("disbursed_on") @db.Date
+  reference         String?   @db.VarChar(100) // sanction / transfer reference from the funder
+  reversedAt        DateTime? @map("reversed_at") @db.Timestamptz(6) // set when the invoice is cancelled or the award revoked
+  reversalReason    String?   @map("reversal_reason") @db.VarChar(255)
+  createdById       String?   @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus           @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  award        ScholarshipAward @relation(fields: [awardId], references: [id], onDelete: Restrict)
+  student      Student          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  invoice      FeeInvoice?      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  payment      Payment?         @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, awardId])
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, studentId])
+  @@index([organizationId, campusId, disbursedOn])
+  @@index([organizationId, paymentId])
+  @@map("scholarship_disbursements")
+}
+
+// One fee reminder sent for an invoice. Append-only: no updatedAt / deletedAt.
+model FeeReminderLog {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  campusId       String          @map("campus_id") @db.Uuid
+  invoiceId      String          @map("invoice_id") @db.Uuid
+  studentId      String          @map("student_id") @db.Uuid
+  guardianId     String?         @map("guardian_id") @db.Uuid // fee payer who received the reminder
+  reminderType   FeeReminderType @map("reminder_type")
+  channel        Channel
+  messageLogId   String?         @map("message_log_id") @db.Uuid // delivery status lives in MessageLog
+  balanceAtSend  Decimal         @map("balance_at_send") @db.Decimal(12, 2)
+  currency       String          @db.Char(3)
+  isAutomatic    Boolean         @default(true) @map("is_automatic") // false = sent by a user from the dues list
+  triggeredById  String?         @map("triggered_by_id") @db.Uuid // User id (audit only, no FK)
+  sentAt         DateTime        @default(now()) @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  invoice      FeeInvoice   @relation(fields: [invoiceId], references: [id], onDelete: Restrict) // the reminder trail is financial history
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  guardian     Guardian?    @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  messageLog   MessageLog?  @relation(fields: [messageLogId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, invoiceId, sentAt])
+  @@index([organizationId, studentId, sentAt])
+  @@index([organizationId, campusId, reminderType, sentAt])
+  @@map("fee_reminder_logs")
+}

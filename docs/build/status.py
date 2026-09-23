@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 BUILD = Path(__file__).resolve().parent
-SRC = BUILD.parent / "src"
+SRC = BUILD.parent
 
 
 def words(text: str) -> int:

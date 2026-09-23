@@ -1,0 +1,1075 @@
+// 11-operations: Library, Inventory, Transport and Hostel (Phase 3 modules).
+// Library and hostel rules (loan days, fine per day, max books, roll-call time) live in OrganizationSetting.
+
+enum BookCopyStatus {
+  AVAILABLE
+  ISSUED
+  RESERVED
+  LOST
+  DAMAGED
+  UNDER_REPAIR
+  WITHDRAWN
+}
+
+enum BookIssueStatus {
+  ISSUED
+  RETURNED
+  OVERDUE
+  LOST
+}
+
+enum LibraryMemberType {
+  STUDENT
+  STAFF
+}
+
+enum InventoryItemType {
+  CONSUMABLE // stationery, chalk, cleaning supplies
+  ASSET // projector, laptop, furniture
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum StockTransactionType {
+  IN
+  OUT
+  ADJUST
+  ISSUE_TO_STAFF
+  ISSUE_TO_STUDENT
+  RETURN // issued stock brought back
+  SALE // uniform / books / stationery sold to a student; unitPrice + feeInvoiceId set
+  TRANSFER_OUT // stock moved to another campus store
+  TRANSFER_IN
+  WRITE_OFF // damaged / expired stock
+}
+
+enum BookReservationStatus {
+  WAITING
+  READY_FOR_PICKUP
+  FULFILLED
+  EXPIRED
+  CANCELLED
+}
+
+enum TransportBoardingStatus {
+  BOARDED
+  NOT_BOARDED
+  DROPPED
+  ABSENT
+}
+
+enum HostelLeaveType {
+  HOME_VISIT
+  DAY_OUT
+  MEDICAL
+  EMERGENCY
+}
+
+enum AssetAssignmentStatus {
+  ASSIGNED
+  RETURNED
+  LOST
+  DAMAGED
+}
+
+enum VehicleType {
+  BUS
+  MINI_BUS
+  VAN
+  CAR
+  AUTO
+  OTHER
+}
+
+enum VehicleStatus {
+  ACTIVE
+  UNDER_MAINTENANCE
+  RETIRED
+}
+
+enum TransportServiceType {
+  BOTH
+  PICKUP_ONLY
+  DROP_ONLY
+}
+
+enum TransportAssignmentStatus {
+  ACTIVE
+  SUSPENDED // e.g. fee hold
+  ENDED
+}
+
+enum TripType {
+  PICKUP
+  DROP
+  SPECIAL // excursion, event
+}
+
+enum TripStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceType {
+  SERVICE
+  REPAIR
+  TYRE
+  INSURANCE_RENEWAL
+  FITNESS_RENEWAL
+  PUC_RENEWAL
+  ACCIDENT
+  OTHER
+}
+
+enum HostelType {
+  BOYS
+  GIRLS
+  MIXED
+}
+
+enum HostelRoomType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+  DORMITORY
+}
+
+enum HostelBedStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+}
+
+enum HostelAllocationStatus {
+  RESERVED
+  ACTIVE
+  VACATED
+  CANCELLED
+}
+
+enum HostelAttendanceStatus {
+  PRESENT
+  ABSENT
+  ON_LEAVE // approved leave / home visit
+  LATE_ENTRY
+}
+
+// ---------------------------------------------------------------- Library
+
+// Library catalogue category (may be nested): Fiction > Hindi Fiction.
+model LibraryCategory {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  parentId       String?      @map("parent_id") @db.Uuid
+  name           String       @db.VarChar(100)
+  code           String?      @db.VarChar(30) // e.g. a Dewey class
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       LibraryCategory?  @relation("LibraryCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     LibraryCategory[] @relation("LibraryCategoryTree")
+  books        Book[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, parentId])
+  @@map("library_categories")
+}
+
+// A title in the library catalogue; physical copies are BookCopy rows.
+model Book {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  categoryId      String?      @map("category_id") @db.Uuid
+  subjectId       String?      @map("subject_id") @db.Uuid // links textbooks and reference books to a subject
+  title           String       @db.VarChar(300)
+  subtitle        String?      @db.VarChar(300)
+  authors         String       @db.VarChar(500) // comma-separated
+  isbn            String?      @db.VarChar(20)
+  publisher       String?      @db.VarChar(150)
+  edition         String?      @db.VarChar(50)
+  publicationYear Int?         @map("publication_year") @db.SmallInt
+  language        String?      @db.VarChar(30)
+  pages           Int?
+  description     String?      @db.Text
+  tags            String[]
+  coverFileId     String?      @map("cover_file_id") @db.Uuid
+  price           Decimal?     @db.Decimal(12, 2) // replacement price charged when a copy is lost
+  currency        String?      @db.Char(3)
+  totalCopies     Int          @default(0) @map("total_copies") // cached
+  availableCopies Int          @default(0) @map("available_copies") // cached
+  status          RecordStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category         LibraryCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subject          Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  coverFile        FileAsset?        @relation(fields: [coverFileId], references: [id], onDelete: SetNull)
+  copies           BookCopy[]
+  issues           BookIssue[]
+  bookReservations BookReservation[]
+
+  @@index([organizationId, title])
+  @@index([organizationId, isbn])
+  @@index([organizationId, categoryId, status])
+  @@map("books")
+}
+
+// One physical copy of a book with its accession number and barcode.
+model BookCopy {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  campusId       String         @map("campus_id") @db.Uuid // library that holds the copy
+  bookId         String         @map("book_id") @db.Uuid
+  accessionNo    String         @map("accession_no") @db.VarChar(30) // from NumberSequence LIBRARY_ACCESSION_NO
+  barcode        String?        @db.VarChar(50)
+  status         BookCopyStatus @default(AVAILABLE)
+  condition      String?        @db.VarChar(30) // New, Good, Worn
+  shelfLocation  String?        @map("shelf_location") @db.VarChar(50) // rack / shelf
+  purchaseDate   DateTime?      @map("purchase_date") @db.Date
+  price          Decimal?       @db.Decimal(12, 2)
+  currency       String?        @db.Char(3)
+  withdrawnAt    DateTime?      @map("withdrawn_at") @db.Timestamptz(6)
+  withdrawReason String?        @map("withdraw_reason") @db.VarChar(255)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus           Campus            @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  book             Book              @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  issues           BookIssue[]
+  bookReservations BookReservation[]
+
+  @@unique([organizationId, accessionNo])
+  @@unique([organizationId, barcode])
+  @@index([organizationId, campusId, status])
+  @@index([organizationId, bookId, status])
+  @@map("book_copies")
+}
+
+// Loan of a book copy to a student or staff member, with renewals and overdue fine.
+// One open loan per copy is enforced by a partial unique index in the SQL migration:
+//   uq_book_issue_open (organization_id, book_copy_id) WHERE status IN ('ISSUED','OVERDUE')
+model BookIssue {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  campusId       String            @map("campus_id") @db.Uuid
+  bookCopyId     String            @map("book_copy_id") @db.Uuid
+  bookId         String            @map("book_id") @db.Uuid // denormalised from the copy for title-level reports
+  memberType     LibraryMemberType @map("member_type")
+  studentId      String?           @map("student_id") @db.Uuid // set when memberType is STUDENT
+  staffId        String?           @map("staff_id") @db.Uuid // set when memberType is STAFF
+  issueDate      DateTime          @map("issue_date") @db.Date
+  dueDate        DateTime          @map("due_date") @db.Date
+  returnDate     DateTime?         @map("return_date") @db.Date
+  renewalCount   Int               @default(0) @map("renewal_count") @db.SmallInt
+  lastRenewedOn  DateTime?         @map("last_renewed_on") @db.Date
+  status         BookIssueStatus   @default(ISSUED)
+  fineAmount     Decimal           @default(0) @map("fine_amount") @db.Decimal(12, 2) // overdue / damage / lost-book charge
+  finePaid       Decimal           @default(0) @map("fine_paid") @db.Decimal(12, 2)
+  fineWaived     Boolean           @default(false) @map("fine_waived")
+  currency       String            @db.Char(3)
+  fineInvoiceId  String?           @map("fine_invoice_id") @db.Uuid // fee invoice that carries the fine for a student
+  finePaymentId  String?           @map("fine_payment_id") @db.Uuid // Payment (purpose LIBRARY_FINE) when the fine is paid at the counter, e.g. by staff
+  remarks        String?           @db.VarChar(255)
+  issuedById     String?           @map("issued_by_id") @db.Uuid // User id (audit only, no FK)
+  returnedToId   String?           @map("returned_to_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus           @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  bookCopy     BookCopy         @relation(fields: [bookCopyId], references: [id], onDelete: Restrict)
+  book         Book             @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  student      Student?         @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  staff        Staff?           @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  fineInvoice  FeeInvoice?      @relation(fields: [fineInvoiceId], references: [id], onDelete: SetNull)
+  finePayment  Payment?         @relation(fields: [finePaymentId], references: [id], onDelete: SetNull)
+  reservation  BookReservation?
+
+  @@index([organizationId, bookCopyId, status])
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, staffId, status])
+  @@index([organizationId, campusId, status, dueDate]) // overdue list
+  @@map("book_issues")
+}
+
+// Hold placed on a title by a member (Student Portal / librarian); served in queue order by reservedAt.
+model BookReservation {
+  id             String                @id @default(uuid()) @db.Uuid
+  organizationId String                @map("organization_id") @db.Uuid
+  campusId       String                @map("campus_id") @db.Uuid
+  bookId         String                @map("book_id") @db.Uuid
+  bookCopyId     String?               @map("book_copy_id") @db.Uuid // copy set aside when READY_FOR_PICKUP (BookCopy.status = RESERVED)
+  memberType     LibraryMemberType     @map("member_type")
+  studentId      String?               @map("student_id") @db.Uuid
+  staffId        String?               @map("staff_id") @db.Uuid
+  status         BookReservationStatus @default(WAITING)
+  reservedAt     DateTime              @default(now()) @map("reserved_at") @db.Timestamptz(6)
+  readyAt        DateTime?             @map("ready_at") @db.Timestamptz(6)
+  expiresAt      DateTime?             @map("expires_at") @db.Timestamptz(6) // pickup deadline
+  bookIssueId    String?               @unique @map("book_issue_id") @db.Uuid // loan that fulfilled the hold
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  book         Book         @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  bookCopy     BookCopy?    @relation(fields: [bookCopyId], references: [id], onDelete: SetNull)
+  student      Student?     @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  staff        Staff?       @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  bookIssue    BookIssue?   @relation(fields: [bookIssueId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, bookId, status, reservedAt]) // queue of a title
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, staffId, status])
+  @@index([organizationId, campusId, status, expiresAt]) // expiry worker
+  @@map("book_reservations")
+}
+
+// ---------------------------------------------------------------- Inventory
+
+// Group of inventory items: Stationery, IT Equipment, Furniture, Sports.
+model InventoryCategory {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String       @db.VarChar(100)
+  code           String?      @db.VarChar(30)
+  description    String?      @db.VarChar(255)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        InventoryItem[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status])
+  @@map("inventory_categories")
+}
+
+// Stock-keeping item of one campus store with current stock and reorder level.
+model InventoryItem {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  campusId       String            @map("campus_id") @db.Uuid // stock is kept per campus store
+  categoryId     String?           @map("category_id") @db.Uuid
+  name           String            @db.VarChar(150)
+  sku            String            @db.VarChar(40)
+  itemType       InventoryItemType @default(CONSUMABLE) @map("item_type")
+  unit           String            @db.VarChar(20) // pcs, box, kg, litre
+  description    String?           @db.VarChar(500)
+  currentStock   Decimal           @default(0) @map("current_stock") @db.Decimal(12, 3) // equals balanceAfter of the latest StockTransaction
+  reorderLevel   Decimal?          @map("reorder_level") @db.Decimal(12, 3) // low-stock alert when currentStock falls to this level
+  unitCost       Decimal?          @map("unit_cost") @db.Decimal(12, 2) // latest purchase cost
+  sellingPrice   Decimal?          @map("selling_price") @db.Decimal(12, 2) // price charged to students for SALE rows
+  currency       String?           @db.Char(3)
+  feeHeadId      String?           @map("fee_head_id") @db.Uuid // fee head (UNIFORM / BOOKS) used when a sale is invoiced
+  location       String?           @db.VarChar(100) // store room / rack
+  status         RecordStatus      @default(ACTIVE)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  category           InventoryCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  feeHead            FeeHead?            @relation(fields: [feeHeadId], references: [id], onDelete: SetNull)
+  purchaseOrderItems PurchaseOrderItem[]
+  stockTransactions  StockTransaction[]
+  assetAssignments   AssetAssignment[]
+
+  @@unique([organizationId, campusId, sku])
+  @@index([organizationId, campusId, categoryId, status])
+  @@index([organizationId, name])
+  @@map("inventory_items")
+}
+
+// Supplier of goods and services (inventory, books, vehicle maintenance).
+model Vendor {
+  id                   String       @id @default(uuid()) @db.Uuid
+  organizationId       String       @map("organization_id") @db.Uuid
+  name                 String       @db.VarChar(150)
+  code                 String       @db.VarChar(30)
+  contactPerson        String?      @map("contact_person") @db.VarChar(120)
+  phone                String?      @db.VarChar(20)
+  email                String?      @db.VarChar(255)
+  addressLine1         String?      @map("address_line1") @db.VarChar(200)
+  city                 String?      @db.VarChar(100)
+  state                String?      @db.VarChar(100)
+  postalCode           String?      @map("postal_code") @db.VarChar(20)
+  countryCode          String?      @map("country_code") @db.Char(2)
+  stateCode            String?      @map("state_code") @db.VarChar(10) // GST state code; decides CGST+SGST vs IGST on purchases
+  taxId                String?      @map("tax_id") @db.VarChar(30) // GSTIN / ABN / TRN
+  taxIdType            String?      @map("tax_id_type") @db.VarChar(10) // GSTIN | ABN | TRN | EIN
+  panEncrypted         String?      @map("pan_encrypted") @db.Text // AES-256-GCM; needed for TDS u/s 194C / 194J
+  bankDetailsEncrypted String?      @map("bank_details_encrypted") @db.Text // AES-256-GCM ciphertext of { accountName, accountNo, ifsc, bankName }
+  bankAccountLast4     String?      @map("bank_account_last4") @db.VarChar(4) // safe to display
+  paymentTerms         String?      @map("payment_terms") @db.VarChar(100) // e.g. Net 30
+  notes                String?      @db.VarChar(500)
+  status               RecordStatus @default(ACTIVE)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchaseOrders      PurchaseOrder[]
+  vehicleMaintenances VehicleMaintenance[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status, name])
+  @@map("vendors")
+}
+
+// Order placed with a vendor; receiving goods creates StockTransaction IN rows.
+model PurchaseOrder {
+  id              String              @id @default(uuid()) @db.Uuid
+  organizationId  String              @map("organization_id") @db.Uuid
+  campusId        String              @map("campus_id") @db.Uuid
+  vendorId        String              @map("vendor_id") @db.Uuid
+  poNumber        String              @map("po_number") @db.VarChar(40) // from NumberSequence PURCHASE_ORDER_NO
+  status          PurchaseOrderStatus @default(DRAFT)
+  orderDate       DateTime            @map("order_date") @db.Date
+  expectedDate    DateTime?           @map("expected_date") @db.Date
+  receivedDate    DateTime?           @map("received_date") @db.Date // when fully received
+  currency        String              @db.Char(3)
+  subtotal        Decimal             @default(0) @db.Decimal(12, 2)
+  taxTotal        Decimal             @default(0) @map("tax_total") @db.Decimal(12, 2)
+  taxBreakdown    Json?               @map("tax_breakdown") // [{ code: CGST|SGST|IGST|GST|VAT, percent, amount }] for input-tax records
+  total           Decimal             @default(0) @db.Decimal(12, 2)
+  vendorTaxId     String?             @map("vendor_tax_id") @db.VarChar(30) // vendor GSTIN frozen at order time
+  vendorInvoiceNo String?             @map("vendor_invoice_no") @db.VarChar(60)
+  notes           String?             @db.VarChar(500)
+  requestedById   String?             @map("requested_by_id") @db.Uuid // User id (audit only, no FK)
+  approvedById    String?             @map("approved_by_id") @db.Uuid
+  approvedAt      DateTime?           @map("approved_at") @db.Timestamptz(6)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?           @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  vendor       Vendor              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  approvedBy   User?               @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  items        PurchaseOrderItem[]
+
+  @@unique([organizationId, poNumber])
+  @@index([organizationId, campusId, status, orderDate])
+  @@index([organizationId, vendorId])
+  @@map("purchase_orders")
+}
+
+// One line of a purchase order.
+model PurchaseOrderItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  purchaseOrderId  String   @map("purchase_order_id") @db.Uuid
+  itemId           String   @map("item_id") @db.Uuid
+  description      String?  @db.VarChar(255)
+  quantityOrdered  Decimal  @map("quantity_ordered") @db.Decimal(12, 3)
+  quantityReceived Decimal  @default(0) @map("quantity_received") @db.Decimal(12, 3)
+  unitPrice        Decimal  @map("unit_price") @db.Decimal(12, 2)
+  taxCode          String?  @map("tax_code") @db.VarChar(20) // HSN
+  taxRate          Decimal  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount        Decimal  @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  lineTotal        Decimal  @map("line_total") @db.Decimal(12, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict) // purchase orders are soft-deleted; posted stock rows keep their PO reference
+  item              InventoryItem      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  stockTransactions StockTransaction[]
+
+  @@index([organizationId, purchaseOrderId])
+  @@index([organizationId, itemId])
+  @@map("purchase_order_items")
+}
+
+// Stock ledger row of an item. Append-only: no updatedAt / deletedAt; corrections are new ADJUST rows.
+model StockTransaction {
+  id                  String               @id @default(uuid()) @db.Uuid
+  organizationId      String               @map("organization_id") @db.Uuid
+  campusId            String               @map("campus_id") @db.Uuid
+  itemId              String               @map("item_id") @db.Uuid
+  transactionType     StockTransactionType @map("transaction_type")
+  quantity            Decimal              @db.Decimal(12, 3) // always positive, except ADJUST which may be negative
+  balanceAfter        Decimal              @map("balance_after") @db.Decimal(12, 3) // item stock after this row
+  unitCost            Decimal?             @map("unit_cost") @db.Decimal(12, 2)
+  unitPrice           Decimal?             @map("unit_price") @db.Decimal(12, 2) // selling price for SALE rows
+  currency            String?              @db.Char(3)
+  feeInvoiceId        String?              @map("fee_invoice_id") @db.Uuid // SALE rows: invoice that charges the student
+  counterCampusId     String?              @map("counter_campus_id") @db.Uuid // other side of a TRANSFER_OUT / TRANSFER_IN
+  transferRef         String?              @map("transfer_ref") @db.Uuid // pairs the OUT and IN rows of one transfer
+  transactionDate     DateTime             @map("transaction_date") @db.Date
+  purchaseOrderItemId String?              @map("purchase_order_item_id") @db.Uuid // IN rows from a purchase order
+  staffId             String?              @map("staff_id") @db.Uuid // ISSUE_TO_STAFF / RETURN
+  studentId           String?              @map("student_id") @db.Uuid // ISSUE_TO_STUDENT / RETURN
+  reference           String?              @db.VarChar(100) // bill number, issue slip number
+  reason              String?              @db.VarChar(255)
+  createdById         String?              @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus            Campus             @relation("StockTransactionCampus", fields: [campusId], references: [id], onDelete: Restrict)
+  counterCampus     Campus?            @relation("StockTransferCounterCampus", fields: [counterCampusId], references: [id], onDelete: Restrict)
+  item              InventoryItem      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  purchaseOrderItem PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict) // the ledger is append-only: never blank the PO reference
+  feeInvoice        FeeInvoice?        @relation(fields: [feeInvoiceId], references: [id], onDelete: SetNull)
+  staff             Staff?             @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  student           Student?           @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, feeInvoiceId])
+  @@index([organizationId, transferRef])
+  @@index([organizationId, itemId, createdAt])
+  @@index([organizationId, campusId, transactionType, transactionDate])
+  @@index([organizationId, staffId])
+  @@index([organizationId, studentId])
+  @@map("stock_transactions")
+}
+
+// A returnable asset (laptop, projector, lab kit) handed to a staff member, student or room.
+model AssetAssignment {
+  id                 String                @id @default(uuid()) @db.Uuid
+  organizationId     String                @map("organization_id") @db.Uuid
+  campusId           String                @map("campus_id") @db.Uuid
+  itemId             String                @map("item_id") @db.Uuid
+  assetTag           String?               @map("asset_tag") @db.VarChar(50) // serial number / asset sticker
+  staffId            String?               @map("staff_id") @db.Uuid
+  studentId          String?               @map("student_id") @db.Uuid
+  roomId             String?               @map("room_id") @db.Uuid // asset installed in a room
+  quantity           Int                   @default(1)
+  assignedDate       DateTime              @map("assigned_date") @db.Date
+  expectedReturnDate DateTime?             @map("expected_return_date") @db.Date
+  returnedDate       DateTime?             @map("returned_date") @db.Date
+  status             AssetAssignmentStatus @default(ASSIGNED)
+  conditionOnIssue   String?               @map("condition_on_issue") @db.VarChar(100)
+  conditionOnReturn  String?               @map("condition_on_return") @db.VarChar(100)
+  notes              String?               @db.VarChar(500)
+  assignedById       String?               @map("assigned_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?             @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus        @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  item         InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  staff        Staff?        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  student      Student?      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  room         Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, itemId, status])
+  @@index([organizationId, staffId, status])
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, campusId, status])
+  @@map("asset_assignments")
+}
+
+// ---------------------------------------------------------------- Transport
+
+// School bus / van with compliance expiry dates and GPS device.
+model Vehicle {
+  id              String        @id @default(uuid()) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  campusId        String        @map("campus_id") @db.Uuid
+  registrationNo  String        @map("registration_no") @db.VarChar(20) // e.g. UP32 AB 1234
+  vehicleType     VehicleType   @default(BUS) @map("vehicle_type")
+  make            String?       @db.VarChar(60)
+  model           String?       @db.VarChar(60)
+  manufactureYear Int?          @map("manufacture_year") @db.SmallInt
+  capacity        Int           @db.SmallInt // seats for students
+  fuelType        String?       @map("fuel_type") @db.VarChar(20)
+  isContracted    Boolean       @default(false) @map("is_contracted") // hired from a transport contractor
+  contractorName  String?       @map("contractor_name") @db.VarChar(150)
+  insuranceExpiry DateTime?     @map("insurance_expiry") @db.Date
+  fitnessExpiry   DateTime?     @map("fitness_expiry") @db.Date
+  pucExpiry       DateTime?     @map("puc_expiry") @db.Date // pollution-under-control certificate
+  permitExpiry    DateTime?     @map("permit_expiry") @db.Date
+  gpsDeviceId     String?       @map("gps_device_id") @db.VarChar(60)
+  gpsProvider     String?       @map("gps_provider") @db.VarChar(60)
+  driverId        String?       @map("driver_id") @db.Uuid // default driver (Staff)
+  attendantId     String?       @map("attendant_id") @db.Uuid // default attendant / conductor (Staff)
+  odometerKm      Int?          @map("odometer_km")
+  status          VehicleStatus @default(ACTIVE)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus               @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  driver       Staff?               @relation("VehicleDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  attendant    Staff?               @relation("VehicleAttendant", fields: [attendantId], references: [id], onDelete: SetNull)
+  routes       TransportRoute[]
+  trips        VehicleTrip[]
+  maintenances VehicleMaintenance[]
+
+  @@unique([organizationId, registrationNo])
+  @@index([organizationId, campusId, status])
+  @@index([organizationId, insuranceExpiry]) // expiry alerts
+  @@map("vehicles")
+}
+
+// Driving licence and verification details of a staff member who drives (driver = Staff + this profile).
+model DriverProfile {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  staffId            String    @unique @map("staff_id") @db.Uuid
+  licenseNoEncrypted String    @map("license_no_encrypted") @db.Text // AES-256-GCM ciphertext
+  licenseLast4       String?   @map("license_last4") @db.VarChar(4) // safe to display
+  licenseType        String?   @map("license_type") @db.VarChar(30) // e.g. HMV, LMV, transport endorsement
+  licenseExpiry      DateTime  @map("license_expiry") @db.Date
+  badgeNo            String?   @map("badge_no") @db.VarChar(30)
+  policeVerifiedOn   DateTime? @map("police_verified_on") @db.Date
+  medicalCheckOn     DateTime? @map("medical_check_on") @db.Date
+  experienceYears    Int?      @map("experience_years") @db.SmallInt
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, licenseExpiry]) // expiry alerts
+  @@map("driver_profiles")
+}
+
+// Bus route of a campus with its usual vehicle.
+model TransportRoute {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  campusId       String       @map("campus_id") @db.Uuid
+  vehicleId      String?      @map("vehicle_id") @db.Uuid
+  name           String       @db.VarChar(100) // Route 3 - Gomti Nagar
+  code           String       @db.VarChar(20)
+  shift          Shift        @default(FULL_DAY)
+  startPoint     String?      @map("start_point") @db.VarChar(150)
+  endPoint       String?      @map("end_point") @db.VarChar(150)
+  distanceKm     Decimal?     @map("distance_km") @db.Decimal(6, 2)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus                @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  vehicle      Vehicle?              @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  stops        RouteStop[]
+  assignments  TransportAssignment[]
+  trips        VehicleTrip[]
+
+  @@unique([organizationId, campusId, code])
+  @@index([organizationId, campusId, status])
+  @@index([organizationId, vehicleId])
+  @@map("transport_routes")
+}
+
+// Stop on a route with its order, timings and monthly transport fee.
+model RouteStop {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  routeId        String       @map("route_id") @db.Uuid
+  name           String       @db.VarChar(120)
+  sequence       Int          @db.SmallInt // order from the first pickup
+  pickupTime     String?      @map("pickup_time") @db.VarChar(5) // HH:mm in the campus timezone
+  dropTime       String?      @map("drop_time") @db.VarChar(5) // HH:mm in the campus timezone
+  landmark       String?      @db.VarChar(200)
+  latitude       Decimal?     @db.Decimal(9, 6)
+  longitude      Decimal?     @db.Decimal(9, 6)
+  fee            Decimal      @default(0) @db.Decimal(12, 2) // monthly transport fee from this stop
+  currency       String       @db.Char(3)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  route                TransportRoute        @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  pickupAssignments    TransportAssignment[] @relation("TransportPickupStop")
+  dropAssignments      TransportAssignment[] @relation("TransportDropStop")
+  transportAttendances TransportAttendance[]
+
+  @@unique([organizationId, routeId, sequence])
+  @@index([organizationId, routeId, status])
+  @@map("route_stops")
+}
+
+// A student's use of a route and stop(s) for an academic year. The invoice worker bills monthlyFee under feeHeadId
+// per billingFrequency, writes FeeInvoiceItem.transportAssignmentId + period, and advances billedUpTo (no double billing after a stop change).
+// One ACTIVE assignment per student per year is enforced by a partial unique index in the SQL migration:
+//   uq_transport_assignment_active (organization_id, student_id, academic_year_id) WHERE status = 'ACTIVE' AND deleted_at IS NULL
+model TransportAssignment {
+  id               String                    @id @default(uuid()) @db.Uuid
+  organizationId   String                    @map("organization_id") @db.Uuid
+  campusId         String                    @map("campus_id") @db.Uuid
+  studentId        String                    @map("student_id") @db.Uuid
+  academicYearId   String                    @map("academic_year_id") @db.Uuid
+  routeId          String                    @map("route_id") @db.Uuid
+  pickupStopId     String?                   @map("pickup_stop_id") @db.Uuid // null when serviceType is DROP_ONLY
+  dropStopId       String?                   @map("drop_stop_id") @db.Uuid // null when serviceType is PICKUP_ONLY
+  serviceType      TransportServiceType      @default(BOTH) @map("service_type")
+  startDate        DateTime                  @map("start_date") @db.Date
+  endDate          DateTime?                 @map("end_date") @db.Date
+  monthlyFee       Decimal                   @map("monthly_fee") @db.Decimal(12, 2) // copied from the stop; may be overridden
+  currency         String                    @db.Char(3)
+  feeHeadId        String?                   @map("fee_head_id") @db.Uuid // TRANSPORT fee head used on invoices
+  billingFrequency FeeFrequency              @default(MONTHLY) @map("billing_frequency")
+  billedUpTo       DateTime?                 @map("billed_up_to") @db.Date // last period already invoiced
+  status           TransportAssignmentStatus @default(ACTIVE)
+  notes            String?                   @db.VarChar(255)
+  createdById      String?                   @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus          Campus           @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  student         Student          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear    AcademicYear     @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  route           TransportRoute   @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  pickupStop      RouteStop?       @relation("TransportPickupStop", fields: [pickupStopId], references: [id], onDelete: Restrict)
+  dropStop        RouteStop?       @relation("TransportDropStop", fields: [dropStopId], references: [id], onDelete: Restrict)
+  feeHead         FeeHead?         @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+  feeInvoiceItems FeeInvoiceItem[]
+
+  @@index([organizationId, studentId, academicYearId, status])
+  @@index([organizationId, routeId, status])
+  @@index([organizationId, campusId, academicYearId, status])
+  @@map("transport_assignments")
+}
+
+// Daily trip log of a vehicle on a route (morning pickup, afternoon drop).
+model VehicleTrip {
+  id              String     @id @default(uuid()) @db.Uuid
+  organizationId  String     @map("organization_id") @db.Uuid
+  campusId        String     @map("campus_id") @db.Uuid
+  vehicleId       String     @map("vehicle_id") @db.Uuid
+  routeId         String?    @map("route_id") @db.Uuid // null for SPECIAL trips
+  driverId        String?    @map("driver_id") @db.Uuid // Staff who drove
+  attendantId     String?    @map("attendant_id") @db.Uuid // Staff attendant on board
+  tripDate        DateTime   @map("trip_date") @db.Date
+  tripType        TripType   @map("trip_type")
+  status          TripStatus @default(SCHEDULED)
+  startedAt       DateTime?  @map("started_at") @db.Timestamptz(6)
+  endedAt         DateTime?  @map("ended_at") @db.Timestamptz(6)
+  startOdometerKm Int?       @map("start_odometer_km")
+  endOdometerKm   Int?       @map("end_odometer_km")
+  studentsBoarded Int?       @map("students_boarded")
+  fuelLitres      Decimal?   @map("fuel_litres") @db.Decimal(6, 2)
+  incidentNotes   String?    @map("incident_notes") @db.Text // delays, breakdowns, incidents
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus                @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  vehicle      Vehicle               @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  route        TransportRoute?       @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  driver       Staff?                @relation("VehicleTripDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  attendant    Staff?                @relation("VehicleTripAttendant", fields: [attendantId], references: [id], onDelete: SetNull)
+  boardings    TransportAttendance[]
+
+  @@unique([organizationId, vehicleId, routeId, tripDate, tripType])
+  @@index([organizationId, campusId, tripDate])
+  @@index([organizationId, driverId, tripDate])
+  @@map("vehicle_trips")
+}
+
+// Boarding / drop record of one student on one trip: parent alert ("Aarav boarded the bus at 7:12") and safety register.
+model TransportAttendance {
+  id             String                  @id @default(uuid()) @db.Uuid
+  organizationId String                  @map("organization_id") @db.Uuid
+  campusId       String                  @map("campus_id") @db.Uuid
+  tripId         String                  @map("trip_id") @db.Uuid
+  studentId      String                  @map("student_id") @db.Uuid
+  stopId         String?                 @map("stop_id") @db.Uuid
+  status         TransportBoardingStatus
+  boardedAt      DateTime?               @map("boarded_at") @db.Timestamptz(6)
+  droppedAt      DateTime?               @map("dropped_at") @db.Timestamptz(6)
+  markedById     String?                 @map("marked_by_id") @db.Uuid // User id of the attendant / driver (audit only, no FK)
+  notifiedAt     DateTime?               @map("notified_at") @db.Timestamptz(6) // alert sent to the parent
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  trip         VehicleTrip  @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  stop         RouteStop?   @relation(fields: [stopId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, tripId, studentId])
+  @@index([organizationId, studentId, createdAt])
+  @@index([organizationId, campusId, createdAt])
+  @@map("transport_attendance")
+}
+
+// Service, repair or compliance renewal of a vehicle with cost and next due date.
+model VehicleMaintenance {
+  id              String          @id @default(uuid()) @db.Uuid
+  organizationId  String          @map("organization_id") @db.Uuid
+  campusId        String          @map("campus_id") @db.Uuid
+  vehicleId       String          @map("vehicle_id") @db.Uuid
+  vendorId        String?         @map("vendor_id") @db.Uuid // workshop / insurer
+  maintenanceType MaintenanceType @map("maintenance_type")
+  description     String?         @db.VarChar(500)
+  serviceDate     DateTime        @map("service_date") @db.Date
+  nextDueDate     DateTime?       @map("next_due_date") @db.Date
+  odometerKm      Int?            @map("odometer_km")
+  cost            Decimal         @default(0) @db.Decimal(12, 2)
+  currency        String          @db.Char(3)
+  billNo          String?         @map("bill_no") @db.VarChar(60)
+  billFileId      String?         @map("bill_file_id") @db.Uuid
+  createdById     String?         @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  vehicle      Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  vendor       Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  billFile     FileAsset?   @relation(fields: [billFileId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, vehicleId, serviceDate])
+  @@index([organizationId, campusId, nextDueDate])
+  @@map("vehicle_maintenances")
+}
+
+// ---------------------------------------------------------------- Hostel
+
+// Hostel building of a campus with its warden.
+model Hostel {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  campusId       String       @map("campus_id") @db.Uuid
+  name           String       @db.VarChar(100)
+  code           String       @db.VarChar(20)
+  hostelType     HostelType   @map("hostel_type")
+  wardenId       String?      @map("warden_id") @db.Uuid // Staff
+  phone          String?      @db.VarChar(20)
+  address        String?      @db.VarChar(300)
+  capacity       Int          @default(0) // cached number of beds
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus              Campus               @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  warden              Staff?               @relation(fields: [wardenId], references: [id], onDelete: SetNull)
+  rooms               HostelRoom[]
+  beds                HostelBed[]
+  allocations         HostelAllocation[]
+  attendances         HostelAttendance[]
+  visitorLogs         HostelVisitorLog[]
+  hostelLeaveRequests HostelLeaveRequest[]
+
+  @@unique([organizationId, campusId, code])
+  @@index([organizationId, campusId, status])
+  @@map("hostels")
+}
+
+// Room of a hostel with floor, type, bed capacity and monthly rent per bed.
+model HostelRoom {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  hostelId       String         @map("hostel_id") @db.Uuid
+  roomNo         String         @map("room_no") @db.VarChar(20)
+  floor          String?        @db.VarChar(20)
+  roomType       HostelRoomType @default(DOUBLE) @map("room_type")
+  capacity       Int            @db.SmallInt // number of beds
+  rent           Decimal        @default(0) @db.Decimal(12, 2) // monthly rent per bed
+  currency       String         @db.Char(3)
+  amenities      String[] // AC, attached bath, balcony
+  status         RecordStatus   @default(ACTIVE)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  hostel       Hostel       @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  beds         HostelBed[]
+
+  @@unique([organizationId, hostelId, roomNo])
+  @@index([organizationId, hostelId, status])
+  @@map("hostel_rooms")
+}
+
+// One bed in a hostel room; the unit that is allocated to a student.
+model HostelBed {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  hostelId       String          @map("hostel_id") @db.Uuid // denormalised from the room for vacancy counts
+  roomId         String          @map("room_id") @db.Uuid
+  bedNo          String          @map("bed_no") @db.VarChar(10)
+  status         HostelBedStatus @default(AVAILABLE)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  hostel       Hostel             @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  room         HostelRoom         @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  allocations  HostelAllocation[]
+
+  @@unique([organizationId, roomId, bedNo])
+  @@index([organizationId, hostelId, status])
+  @@map("hostel_beds")
+}
+
+// A student's stay in a hostel bed from a date to a date. One ACTIVE allocation per bed (service-layer rule + partial unique index).
+// The invoice worker bills monthlyRent under feeHeadId per billingFrequency, writes FeeInvoiceItem.hostelAllocationId + period, and advances billedUpTo.
+model HostelAllocation {
+  id               String                 @id @default(uuid()) @db.Uuid
+  organizationId   String                 @map("organization_id") @db.Uuid
+  campusId         String                 @map("campus_id") @db.Uuid
+  hostelId         String                 @map("hostel_id") @db.Uuid
+  bedId            String                 @map("bed_id") @db.Uuid
+  studentId        String                 @map("student_id") @db.Uuid
+  academicYearId   String                 @map("academic_year_id") @db.Uuid
+  fromDate         DateTime               @map("from_date") @db.Date
+  toDate           DateTime?              @map("to_date") @db.Date // planned or actual end of stay
+  status           HostelAllocationStatus @default(ACTIVE)
+  monthlyRent      Decimal                @map("monthly_rent") @db.Decimal(12, 2) // copied from the room; may be overridden
+  depositAmount    Decimal                @default(0) @map("deposit_amount") @db.Decimal(12, 2)
+  currency         String                 @db.Char(3)
+  feeHeadId        String?                @map("fee_head_id") @db.Uuid // HOSTEL fee head used on invoices
+  billingFrequency FeeFrequency           @default(MONTHLY) @map("billing_frequency")
+  billedUpTo       DateTime?              @map("billed_up_to") @db.Date // last period already invoiced
+  vacatedOn        DateTime?              @map("vacated_on") @db.Date
+  vacateReason     String?                @map("vacate_reason") @db.VarChar(255)
+  notes            String?                @db.VarChar(500)
+  allocatedById    String?                @map("allocated_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?              @map("deleted_at") @db.Timestamptz(6)
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus              Campus               @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  hostel              Hostel               @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  bed                 HostelBed            @relation(fields: [bedId], references: [id], onDelete: Restrict)
+  student             Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear        AcademicYear         @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  feeHead             FeeHead?             @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+  feeInvoiceItems     FeeInvoiceItem[]
+  hostelLeaveRequests HostelLeaveRequest[]
+
+  @@index([organizationId, bedId, status])
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, hostelId, academicYearId, status])
+  @@map("hostel_allocations")
+}
+
+// Night roll call of one hostel resident on one date.
+model HostelAttendance {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  campusId       String                 @map("campus_id") @db.Uuid
+  hostelId       String                 @map("hostel_id") @db.Uuid
+  studentId      String                 @map("student_id") @db.Uuid
+  date           DateTime               @db.Date
+  status         HostelAttendanceStatus
+  leaveRequestId String?                @map("leave_request_id") @db.Uuid // approved out-pass that produced status ON_LEAVE
+  markedAt       DateTime?              @map("marked_at") @db.Timestamptz(6)
+  remark         String?                @db.VarChar(255)
+  markedById     String?                @map("marked_by_id") @db.Uuid // User id (audit only, no FK)
+  notifiedAt     DateTime?              @map("notified_at") @db.Timestamptz(6) // absence alert sent to the parent
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  hostel       Hostel              @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  student      Student             @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  leaveRequest HostelLeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, hostelId, studentId, date])
+  @@index([organizationId, campusId, date, status]) // nightly roll-call dashboard per campus
+  @@index([organizationId, hostelId, date, status])
+  @@index([organizationId, studentId, date])
+  @@map("hostel_attendance")
+}
+
+// Visitor entry at the hostel gate: who met which resident, when they came and left.
+model HostelVisitorLog {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  campusId       String    @map("campus_id") @db.Uuid
+  hostelId       String    @map("hostel_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid // resident visited
+  guardianId     String?   @map("guardian_id") @db.Uuid // set when the visitor is a registered guardian
+  visitorName    String    @map("visitor_name") @db.VarChar(160)
+  relation       String?   @db.VarChar(40) // relation to the student as stated at the gate
+  phone          String?   @db.VarChar(20)
+  idProofType    String?   @map("id_proof_type") @db.VarChar(40)
+  idProofLast4   String?   @map("id_proof_last4") @db.VarChar(4) // only the last 4 characters are kept
+  purpose        String?   @db.VarChar(255)
+  checkInAt      DateTime  @map("check_in_at") @db.Timestamptz(6)
+  checkOutAt     DateTime? @map("check_out_at") @db.Timestamptz(6)
+  approvedById   String?   @map("approved_by_id") @db.Uuid // User id of the warden (audit only, no FK)
+  notes          String?   @db.VarChar(500)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  hostel       Hostel       @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  guardian     Guardian?    @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, campusId, checkInAt])
+  @@index([organizationId, hostelId, checkInAt])
+  @@index([organizationId, studentId, checkInAt])
+  @@map("hostel_visitor_logs")
+}
+
+// Out-pass / leave of a hostel resident: parent request, warden approval, escort and gate timestamps.
+model HostelLeaveRequest {
+  id                    String          @id @default(uuid()) @db.Uuid
+  organizationId        String          @map("organization_id") @db.Uuid
+  campusId              String          @map("campus_id") @db.Uuid
+  hostelId              String          @map("hostel_id") @db.Uuid
+  studentId             String          @map("student_id") @db.Uuid
+  allocationId          String?         @map("allocation_id") @db.Uuid
+  leaveType             HostelLeaveType @map("leave_type")
+  fromAt                DateTime        @map("from_at") @db.Timestamptz(6)
+  expectedReturnAt      DateTime        @map("expected_return_at") @db.Timestamptz(6)
+  reason                String          @db.VarChar(500)
+  requestedByGuardianId String?         @map("requested_by_guardian_id") @db.Uuid
+  escortName            String?         @map("escort_name") @db.VarChar(160) // who collects the student
+  escortPhone           String?         @map("escort_phone") @db.VarChar(20)
+  status                ApprovalStatus  @default(PENDING)
+  approvedById          String?         @map("approved_by_id") @db.Uuid // User id of the warden (audit only, no FK)
+  approvedAt            DateTime?       @map("approved_at") @db.Timestamptz(6)
+  checkedOutAt          DateTime?       @map("checked_out_at") @db.Timestamptz(6) // actual time out at the gate
+  checkedInAt           DateTime?       @map("checked_in_at") @db.Timestamptz(6) // actual return
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus              Campus             @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  hostel              Hostel             @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  student             Student            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  allocation          HostelAllocation?  @relation(fields: [allocationId], references: [id], onDelete: SetNull)
+  requestedByGuardian Guardian?          @relation(fields: [requestedByGuardianId], references: [id], onDelete: SetNull)
+  attendances         HostelAttendance[]
+
+  @@index([organizationId, hostelId, status, fromAt])
+  @@index([organizationId, studentId, fromAt])
+  @@index([organizationId, campusId, status])
+  @@map("hostel_leave_requests")
+}

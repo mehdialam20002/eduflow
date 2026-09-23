@@ -1,11 +1,11 @@
-"""Generates docs/src/_schema/README.md mechanically from the .prisma files:
+"""Generates server/prisma/schema/README.md mechanically from the .prisma files:
 model index (model, table, file, purpose from the // comment above the model, field count), enum list with values, totals.
 Run after every schema change:  python gen_schema_readme.py
 """
 import re
 from pathlib import Path
 
-SCHEMA = Path(__file__).resolve().parent.parent / "src" / "_schema"
+SCHEMA = Path(__file__).resolve().parent.parent.parent / "server" / "prisma" / "schema"
 
 MODULE_HINT = {
     "00-base": "shared",

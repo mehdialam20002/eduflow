@@ -1,0 +1,425 @@
+// 13-certificates-analytics-ai: certificate templates, issued certificates with public QR verification
+// and requests; saved reports, schedules, daily metric snapshots and dashboard preferences;
+// AI insights, student risk scores, natural-language query log and AI usage quota.
+
+enum CertificateType {
+  BONAFIDE
+  TRANSFER
+  CHARACTER
+  COURSE_COMPLETION
+  MERIT
+  FEE // fee-paid certificate for income-tax or bank purposes
+  CUSTOM
+}
+
+enum CertificateRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ISSUED
+  CANCELLED
+}
+
+enum ReportCategory {
+  STUDENTS
+  ADMISSIONS
+  ATTENDANCE
+  FEES
+  EXAMS
+  STAFF
+  PAYROLL
+  COMMUNICATION
+  OPERATIONS
+  CUSTOM
+}
+
+enum ScheduleFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum AiInsightType {
+  ATTENDANCE_DROP
+  DROPOUT_RISK
+  FEE_DEFAULT_RISK
+  ACADEMIC_DECLINE
+  ADMISSION_TREND
+  COLLECTION_FORECAST
+  STAFF_WORKLOAD
+  ANOMALY
+  OTHER
+}
+
+enum AiInsightSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AiInsightStatus {
+  NEW
+  SEEN
+  ACTED
+  DISMISSED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AiQueryStatus {
+  SUCCESS
+  FAILED
+  BLOCKED // question outside the user's permissions or the allowed scope
+  QUOTA_EXCEEDED
+}
+
+// ---------------------------------------------------------------- Certificates
+
+// Certificate design: body text with merge variables, layout and signatories.
+model CertificateTemplate {
+  id               String          @id @default(uuid()) @db.Uuid
+  organizationId   String          @map("organization_id") @db.Uuid
+  name             String          @db.VarChar(120)
+  certificateType  CertificateType @map("certificate_type")
+  body             String          @db.Text // text with {{variables}}, e.g. "This is to certify that {{studentName}} ..."
+  variables        String[] // merge variables used in the body
+  layout           Json // page size, orientation, margins, fonts, logo / seal / QR positions
+  signatories      Json? // [{ name, designation, signatureFileId }]
+  backgroundFileId String?         @map("background_file_id") @db.Uuid // letterhead / border image
+  requiresApproval Boolean         @default(true) @map("requires_approval") // requests need approval before issue
+  feeAmount        Decimal?        @map("fee_amount") @db.Decimal(12, 2) // charge for issuing; null = free
+  currency         String?         @db.Char(3)
+  isDefault        Boolean         @default(false) @map("is_default") // default template of its certificateType
+  status           RecordStatus    @default(ACTIVE)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  backgroundFile     FileAsset?           @relation(fields: [backgroundFileId], references: [id], onDelete: SetNull)
+  issuedCertificates IssuedCertificate[]
+  requests           CertificateRequest[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, certificateType, status])
+  @@map("certificate_templates")
+}
+
+// Certificate issued to a student. The data snapshot and PDF never change; a wrong certificate is revoked and re-issued.
+model IssuedCertificate {
+  id                String          @id @default(uuid()) @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  campusId          String          @map("campus_id") @db.Uuid
+  templateId        String          @map("template_id") @db.Uuid
+  requestId         String?         @unique @map("request_id") @db.Uuid // request that led to this certificate
+  studentId         String          @map("student_id") @db.Uuid
+  certificateType   CertificateType @map("certificate_type") // denormalised from the template
+  serialNo          String          @map("serial_no") @db.VarChar(40) // from NumberSequence CERTIFICATE_NO
+  issueDate         DateTime        @map("issue_date") @db.Date
+  purpose           String?         @db.VarChar(255)
+  dataSnapshot      Json            @map("data_snapshot") // merge values frozen at issue time
+  pdfFileId         String?         @map("pdf_file_id") @db.Uuid
+  verificationCode  String          @unique @map("verification_code") @db.VarChar(32) // random code in the QR; public page /verify/{code} works without login
+  verificationCount Int             @default(0) @map("verification_count")
+  lastVerifiedAt    DateTime?       @map("last_verified_at") @db.Timestamptz(6)
+  issuedById        String?         @map("issued_by_id") @db.Uuid
+  revokedAt         DateTime?       @map("revoked_at") @db.Timestamptz(6)
+  revokedById       String?         @map("revoked_by_id") @db.Uuid // User id (audit only, no FK)
+  revokeReason      String?         @map("revoke_reason") @db.VarChar(255)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  template     CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  request      CertificateRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  student      Student             @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  pdfFile      FileAsset?          @relation(fields: [pdfFileId], references: [id], onDelete: SetNull)
+  issuedBy     User?               @relation(fields: [issuedById], references: [id], onDelete: SetNull)
+  tcForStudent Student?            @relation("StudentTransferCertificate") // student whose record this transfer certificate closed
+
+  @@unique([organizationId, serialNo])
+  @@index([organizationId, studentId, certificateType])
+  @@index([organizationId, campusId, issueDate])
+  @@map("issued_certificates")
+}
+
+// Request for a certificate raised by a parent or student in the portal (or by staff), with approval.
+model CertificateRequest {
+  id                String                   @id @default(uuid()) @db.Uuid
+  organizationId    String                   @map("organization_id") @db.Uuid
+  campusId          String                   @map("campus_id") @db.Uuid
+  studentId         String                   @map("student_id") @db.Uuid
+  certificateType   CertificateType          @map("certificate_type")
+  templateId        String?                  @map("template_id") @db.Uuid
+  purpose           String                   @db.VarChar(500)
+  copies            Int                      @default(1) @db.SmallInt
+  status            CertificateRequestStatus @default(PENDING)
+  requestedByUserId String?                  @map("requested_by_user_id") @db.Uuid // parent, student or staff login
+  reviewedById      String?                  @map("reviewed_by_id") @db.Uuid
+  reviewedAt        DateTime?                @map("reviewed_at") @db.Timestamptz(6)
+  reviewRemarks     String?                  @map("review_remarks") @db.VarChar(500)
+  feeInvoiceId      String?                  @map("fee_invoice_id") @db.Uuid // invoice for the certificate fee, when charged
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?                @map("deleted_at") @db.Timestamptz(6)
+
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus            Campus               @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  student           Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  template          CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  requestedByUser   User?                @relation("CertificateRequestRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy        User?                @relation("CertificateRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  feeInvoice        FeeInvoice?          @relation(fields: [feeInvoiceId], references: [id], onDelete: SetNull)
+  issuedCertificate IssuedCertificate?
+
+  @@index([organizationId, campusId, status, createdAt])
+  @@index([organizationId, studentId, createdAt])
+  @@map("certificate_requests")
+}
+
+// ---------------------------------------------------------------- Analytics
+
+// Report built in the report builder and saved for reuse; may be shared and scheduled.
+model SavedReport {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  campusId       String?        @map("campus_id") @db.Uuid // null = all campuses the viewer may see
+  name           String         @db.VarChar(150)
+  description    String?        @db.VarChar(500)
+  category       ReportCategory
+  definition     Json // { dataset, columns, filters, groupBy, sort, chart }
+  isShared       Boolean        @default(false) @map("is_shared") // false = visible to the owner only
+  sharedRoleKeys String[]       @map("shared_role_keys") // role keys that may open a shared report; empty = every role with analytics.view
+  ownerId        String?        @map("owner_id") @db.Uuid
+  lastRunAt      DateTime?      @map("last_run_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?          @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  owner        User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  schedules    ReportSchedule[]
+
+  @@index([organizationId, category, isShared])
+  @@index([organizationId, ownerId])
+  @@map("saved_reports")
+}
+
+// Automatic delivery of a saved report by email (daily, weekly, monthly).
+model ReportSchedule {
+  id               String            @id @default(uuid()) @db.Uuid
+  organizationId   String            @map("organization_id") @db.Uuid
+  savedReportId    String            @map("saved_report_id") @db.Uuid
+  frequency        ScheduleFrequency
+  dayOfWeek        WeekDay?          @map("day_of_week") // WEEKLY
+  dayOfMonth       Int?              @map("day_of_month") @db.SmallInt // MONTHLY / QUARTERLY; 1-28
+  timeOfDay        String            @map("time_of_day") @db.VarChar(5) // HH:mm in the organization timezone
+  format           FileFormat        @default(PDF)
+  recipientUserIds String[]          @map("recipient_user_ids") @db.Uuid
+  recipientEmails  String[]          @map("recipient_emails") // extra addresses, e.g. a trustee
+  isActive         Boolean           @default(true) @map("is_active")
+  nextRunAt        DateTime?         @map("next_run_at") @db.Timestamptz(6)
+  lastRunAt        DateTime?         @map("last_run_at") @db.Timestamptz(6)
+  lastRunStatus    JobStatus?        @map("last_run_status")
+  lastError        String?           @map("last_error") @db.VarChar(500)
+  createdById      String?           @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  savedReport  SavedReport  @relation(fields: [savedReportId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, savedReportId])
+  @@index([isActive, nextRunAt]) // scheduler
+  @@map("report_schedules")
+}
+
+// Pre-computed daily numbers per organization and campus; dashboards read this table instead of scanning raw data.
+model DailyMetricSnapshot {
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  campusId           String?  @map("campus_id") @db.Uuid // null = roll-up of the whole organization
+  campusKey          String   @default("ALL") @map("campus_key") @db.VarChar(36) // "ALL" or the campusId; makes the unique key work without NULLs
+  date               DateTime @db.Date
+  activeStudents     Int      @default(0) @map("active_students")
+  newAdmissions      Int      @default(0) @map("new_admissions")
+  newInquiries       Int      @default(0) @map("new_inquiries")
+  withdrawals        Int      @default(0)
+  studentsMarked     Int      @default(0) @map("students_marked") // students with attendance marked on the date
+  studentsPresent    Int      @default(0) @map("students_present")
+  attendancePercent  Decimal? @map("attendance_percent") @db.Decimal(5, 2) // null on holidays
+  staffTotal         Int      @default(0) @map("staff_total")
+  staffPresent       Int      @default(0) @map("staff_present")
+  currency           String   @db.Char(3)
+  feeInvoiced        Decimal  @default(0) @map("fee_invoiced") @db.Decimal(14, 2) // invoices issued on the date
+  feeCollected       Decimal  @default(0) @map("fee_collected") @db.Decimal(14, 2) // successful payments on the date
+  feeCollectedOnline Decimal  @default(0) @map("fee_collected_online") @db.Decimal(14, 2)
+  feeDues            Decimal  @default(0) @map("fee_dues") @db.Decimal(14, 2) // total outstanding balance at the end of the day
+  feeOverdue         Decimal  @default(0) @map("fee_overdue") @db.Decimal(14, 2) // part of feeDues past the due date
+  messagesSent       Int      @default(0) @map("messages_sent")
+  extra              Json? // module-specific counters (library issues, transport trips ...)
+  computedAt         DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, campusKey, date])
+  @@index([organizationId, date])
+  @@map("daily_metric_snapshots")
+}
+
+// A user's dashboard layout: widget order, hidden widgets and default filters.
+model DashboardPreference {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  dashboardKey    String   @default("home") @map("dashboard_key") @db.VarChar(40) // home, fees, attendance, admissions
+  layout          Json // [{ widgetKey, x, y, w, h }]
+  hiddenWidgets   String[] @map("hidden_widgets")
+  defaultCampusId String?  @map("default_campus_id") @db.Uuid // Campus id (no FK); null = all assigned campuses
+  defaultRange    String?  @map("default_range") @db.VarChar(20) // today, this_week, this_month, this_year
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, dashboardKey])
+  @@index([organizationId, dashboardKey])
+  @@map("dashboard_preferences")
+}
+
+// ---------------------------------------------------------------- AI Insights
+
+// Finding produced by the AI engine with a plain-language explanation and a suggested action.
+model AiInsight {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @map("organization_id") @db.Uuid
+  campusId        String?           @map("campus_id") @db.Uuid // null = organization-level insight
+  insightType     AiInsightType     @map("insight_type")
+  severity        AiInsightSeverity @default(INFO)
+  title           String            @db.VarChar(200)
+  explanation     String            @db.Text // why the engine raised it, in simple words
+  suggestedAction String?           @map("suggested_action") @db.Text
+  entityType      String?           @map("entity_type") @db.VarChar(60) // model name the insight is about: Student, Batch, Campus ...
+  entityId        String?           @map("entity_id") @db.Uuid
+  evidence        Json? // numbers and trends behind the insight
+  confidence      Decimal?          @db.Decimal(4, 3) // 0.000 - 1.000
+  status          AiInsightStatus   @default(NEW)
+  modelVersion    String            @map("model_version") @db.VarChar(60)
+  generatedAt     DateTime          @default(now()) @map("generated_at") @db.Timestamptz(6)
+  validUntil      DateTime?         @map("valid_until") @db.Timestamptz(6) // stale insights are hidden after this time
+  seenAt          DateTime?         @map("seen_at") @db.Timestamptz(6)
+  actedAt         DateTime?         @map("acted_at") @db.Timestamptz(6)
+  actionTaken     String?           @map("action_taken") @db.VarChar(500)
+  dismissedAt     DateTime?         @map("dismissed_at") @db.Timestamptz(6)
+  dismissReason   String?           @map("dismiss_reason") @db.VarChar(255)
+  handledById     String?           @map("handled_by_id") @db.Uuid // User id (audit only, no FK)
+  wasHelpful      Boolean?          @map("was_helpful") // user feedback, used to tune the engine
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, campusId, status, severity])
+  @@index([organizationId, insightType, generatedAt])
+  @@index([organizationId, entityType, entityId])
+  @@map("ai_insights")
+}
+
+// Risk scores of a student (0-100) with the contributing factors; history is kept, isLatest marks the current row.
+model StudentRiskScore {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  campusId       String    @map("campus_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  academicYearId String?   @map("academic_year_id") @db.Uuid
+  dropoutRisk    Decimal   @map("dropout_risk") @db.Decimal(5, 2)
+  feeDefaultRisk Decimal   @map("fee_default_risk") @db.Decimal(5, 2)
+  academicRisk   Decimal   @map("academic_risk") @db.Decimal(5, 2)
+  overallRisk    Decimal   @map("overall_risk") @db.Decimal(5, 2)
+  riskLevel      RiskLevel @map("risk_level") // band of overallRisk
+  factors        Json // [{ factor, weight, value, direction }] e.g. attendance down 18% in 30 days
+  modelVersion   String    @map("model_version") @db.VarChar(60)
+  isLatest       Boolean   @default(true) @map("is_latest")
+  computedAt     DateTime  @default(now()) @map("computed_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus        @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, studentId, computedAt])
+  @@index([organizationId, campusId, isLatest, riskLevel])
+  @@map("student_risk_scores")
+}
+
+// One natural-language question asked to the AI assistant. Append-only: no updatedAt / deletedAt.
+model AiQueryLog {
+  id               String        @id @default(uuid()) @db.Uuid
+  organizationId   String        @map("organization_id") @db.Uuid
+  campusId         String?       @map("campus_id") @db.Uuid // Campus id of the active campus filter (no FK)
+  userId           String?       @map("user_id") @db.Uuid
+  question         String        @db.Text
+  queryPlan        Json?         @map("query_plan") // structured, permission-checked query the model produced (never raw SQL)
+  summary          String?       @db.Text // generated answer shown to the user
+  resultRowCount   Int?          @map("result_row_count")
+  status           AiQueryStatus @default(SUCCESS)
+  modelVersion     String        @map("model_version") @db.VarChar(60)
+  promptTokens     Int           @default(0) @map("prompt_tokens")
+  completionTokens Int           @default(0) @map("completion_tokens")
+  totalTokens      Int           @default(0) @map("total_tokens")
+  cost             Decimal       @default(0) @db.Decimal(12, 4) // 4 decimals: a single query costs a fraction of a currency unit
+  currency         String        @default("USD") @db.Char(3)
+  latencyMs        Int?          @map("latency_ms")
+  feedbackRating   Int?          @map("feedback_rating") @db.SmallInt // 1 = not helpful, 5 = very helpful
+  errorMessage     String?       @map("error_message") @db.VarChar(500)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, userId, createdAt])
+  @@map("ai_query_logs")
+}
+
+// AI allowance of an organization for one calendar month (queries and tokens) with usage counters.
+model AiUsageQuota {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  periodKey       String    @map("period_key") @db.VarChar(7) // "2027-04"
+  periodStart     DateTime  @map("period_start") @db.Date
+  periodEnd       DateTime  @map("period_end") @db.Date
+  queryLimit      Int?      @map("query_limit") // null = unlimited (Enterprise)
+  queriesUsed     Int       @default(0) @map("queries_used")
+  tokenLimit      Int?      @map("token_limit")
+  tokensUsed      Int       @default(0) @map("tokens_used")
+  insightRunsUsed Int       @default(0) @map("insight_runs_used")
+  costAccrued     Decimal   @default(0) @map("cost_accrued") @db.Decimal(12, 4)
+  currency        String    @default("USD") @db.Char(3)
+  limitReachedAt  DateTime? @map("limit_reached_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, periodKey])
+  @@index([organizationId, periodStart])
+  @@map("ai_usage_quotas")
+}
