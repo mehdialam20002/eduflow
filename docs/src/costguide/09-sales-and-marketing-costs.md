@@ -14,7 +14,7 @@ Marketing money is cash spent to create leads and close them. The sales and mark
 
 **Minimum** is bare bootstrap: free tiers, the founder does it himself, only what the channel cannot work without. **Recommended** equals the BRD plan. **Maximum** is the sensible upper end of one line; above it the money is waste.
 
-> **Warning:** Maximum is a per-line ceiling, not a budget. Every Maximum added together is Rs 16,40,726, which already breaks the Rs 14,40,000 that the Rs 12,000 limit allows for 120 customers, before one salary is paid.
+> **Warning:** Maximum is a per-line ceiling, not a budget. Every Maximum added together is Rs 16,46,726, which already breaks the Rs 14,40,000 that the Rs 12,000 limit allows for 120 customers, before one salary is paid.
 
 ## Outbound channels
 
@@ -25,13 +25,13 @@ Cold calling means phoning an owner who never asked you to call. It is the cheap
 | Item | When to pay | Minimum | Recommended | Maximum | Avoid or reduce? |
 |---|---|---|---|---|---|
 | Calling SIM, unlimited calls | Monthly | Rs 4,500 | Rs 6,000 | Rs 9,000 | No. The Rs 199 pack is Rs 213 a month |
-| CRM and call-log tools | Monthly | Rs 0 | Rs 13,500 | Rs 12,000 | Yes. A sheet holds 300 leads |
+| CRM and call-log tools | Monthly | Rs 0 | Rs 13,500 | Rs 18,000 | Yes. A sheet holds 300 leads |
 | Cloud dialer seat | Monthly, billed yearly | Rs 0 | Rs 0 | Rs 47,200 | Yes. Pointless below three callers |
 | Tele-caller retainer | Monthly, Feb to Sep 2027 | Rs 0 | Rs 40,000 | Rs 72,000 | Yes, at 3 hours a day of your time |
 | Demo incentive | Per demo held | Rs 0 | Rs 12,500 | Rs 20,750 | No. Never pay per dial |
-| **Year 1 total** | | **Rs 4,500** | **Rs 72,000** | **Rs 1,60,950** | |
+| **Year 1 total** | | **Rs 4,500** | **Rs 72,000** | **Rs 1,66,950** | |
 
-Recommended: Rs 6,000 + Rs 13,500 + (Rs 5,000 x 8 months = Rs 40,000) + (Rs 150 x 83 demos = Rs 12,500) = Rs 72,000. Maximum swaps loose tools for MyOperator Sedan at Rs 5,000 + GST a month for 10 users, 8 months = Rs 47,200 (see Master Price List). A half-day tele-caller in Patna costs Rs 6,000 to Rs 9,000 a month, above the plan's Rs 5,000; keep the retainer and let the incentive close the gap, since 10 demos a month earns her Rs 6,500. Prepaid recharges hide GST and give no usable credit. Cloud telephony adds 18% on top, which is claimable. A tele-caller under the Rs 20 lakh registration limit charges no GST.
+Recommended: Rs 6,000 + Rs 13,500 + (Rs 5,000 x 8 months = Rs 40,000) + (Rs 150 x about 83 demos = Rs 12,450, rounded to Rs 12,500) = Rs 72,000. The CRM line is a CRM seat plus a call-log app at Rs 1,500 a month for the 9 months from January; the Maximum keeps the same paid tools for all 12 months, Rs 1,500 x 12 = Rs 18,000. Maximum swaps loose tools for MyOperator Sedan at Rs 5,000 + GST a month for 10 users, 8 months = Rs 47,200 (see Master Price List). A half-day tele-caller in Patna costs Rs 6,000 to Rs 9,000 a month, above the plan's Rs 5,000; keep the retainer and let the incentive close the gap, since 10 demos a month earns her Rs 6,500. Prepaid recharges hide GST and give no usable credit. Cloud telephony adds 18% on top, which is claimable. A tele-caller under the Rs 20 lakh registration limit charges no GST.
 
 ### WhatsApp outreach
 
@@ -226,13 +226,13 @@ The same year by channel, at all three levels, with what each channel wins. Cost
 | Listings | Rs 0 | Rs 24,000 | Rs 55,000 | 9 | Rs 2,667 |
 | WhatsApp outreach | Rs 1,000 | Rs 32,000 | Rs 68,500 | 11 | Rs 2,909 |
 | YouTube demos | Rs 0 | Rs 45,000 | Rs 1,32,000 | 15 | Rs 3,000 |
-| Cold calling | Rs 4,500 | Rs 72,000 | Rs 1,60,950 | 19 | Rs 3,789 |
+| Cold calling | Rs 4,500 | Rs 72,000 | Rs 1,66,950 | 19 | Rs 3,789 |
 | Google and Meta ads | Rs 0 | Rs 70,000 | Rs 2,00,000 | 12 | Rs 5,833 |
 | Field visits, travel and print | Rs 41,680 | Rs 1,54,000 | Rs 4,13,976 | 15 | Rs 10,267 |
 | Reseller partners with commission | Rs 13,050 | Rs 60,000 | Rs 1,54,000 | 5 | Rs 12,000 |
 | Fairs and principal associations | Rs 6,000 | Rs 70,000 | Rs 1,80,800 | 3 | Rs 23,333 |
 | Contingency | Rs 0 | Rs 27,000 | Rs 50,000 | 0 | n/a |
-| **Year 1 total** | **Rs 72,130** | **Rs 6,10,000** | **Rs 16,40,726** | **131** | **Rs 4,656** |
+| **Year 1 total** | **Rs 72,130** | **Rs 6,10,000** | **Rs 16,46,726** | **131** | **Rs 4,656** |
 
 Blended cost per win = Rs 6,10,000 divided by 131 = Rs 4,656. *Go-To-Market Strategy* shows Rs 4,466 because it divides only the Rs 5,85,000 programme budget and leaves the commission out. The Minimum column is a floor, not a plan: at Rs 72,130 the founder calls, walks, films and writes everything himself and buys only a SIM, flyers and one standee. It is where you retreat if the bank balance falls below three months of spend.
 
@@ -316,7 +316,7 @@ Write the stop rules down before the money is spent. Justdial ends if a demo hel
 
 ## Key takeaways
 
-- The Year 1 marketing budget is Rs 6,10,000: Rs 5,85,000 of programmes plus Rs 25,000 of partner commission. The bare Minimum is Rs 72,130; the per-line Maximums add to Rs 16,40,726, which must never all be spent.
+- The Year 1 marketing budget is Rs 6,10,000: Rs 5,85,000 of programmes plus Rs 25,000 of partner commission. The bare Minimum is Rs 72,130; the per-line Maximums add to Rs 16,46,726, which must never all be spent.
 - Cheapest per win: word of mouth at Rs 0, content at Rs 1,444, referrals at Rs 2,500. Dearest: field visits at Rs 10,267 and fairs at Rs 23,333. Keep the dear two small and deliberate.
 - Fully loaded CAC is Rs 8,283 against the Rs 12,000 limit, leaving Rs 4,46,000 of room. Spend that room on onboarding, not on ads.
 - Paid search is a test, not a channel: Rs 100 a click gives about Rs 13,300 a customer. Bid only on coaching, Hindi and city words at Rs 30 to Rs 120, and put the GSTIN in every ad account so the 18% comes back.

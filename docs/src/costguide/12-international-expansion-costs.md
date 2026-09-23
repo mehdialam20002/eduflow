@@ -101,8 +101,8 @@ A free zone is a business park with its own company registry. The licence is the
 | Business bank account (monthly) | Every month | Wio Essential AED 1,188 | Wio Essential AED 1,188 | Wio Grow AED 2,988 | Partly. Wio is already the cheap option |
 | Books, corporate tax return, statements (yearly) | Year end | AED 3,000 | AED 5,000 | AED 8,000 | No. Free zones have needed statements since Sep 2025 |
 | VAT and corporate tax registration (one-time) | At set-up | AED 0 | AED 0 | AED 1,500 help | Yes. EmaraTax has no fee |
-| **Total in AED, first year** | | **AED 9,938** | **AED 20,188** | **AED 62,368** | |
-| **Total in rupees, first year** | | **Rs 2,28,574** | **Rs 4,64,324** | **Rs 14,34,464** | |
+| **Total in AED, first year** | | **AED 9,938** | **AED 20,188** | **AED 63,868** | |
+| **Total in rupees, first year** | | **Rs 2,28,574** | **Rs 4,64,324** | **Rs 14,68,964** | |
 
 Arithmetic at Recommended: AED 14,000 + 1,188 + 5,000 = AED 20,188, and AED 20,188 x Rs 23 = Rs 4,64,324. The Master Price List rounds this to about Rs 4.65 lakh. RAKEZ guarantees the same price at renewal, so the yearly cost after year one is the same Rs 4,64,324. The DMCC route also parks AED 50,000 (Rs 11,50,000) of share capital, which is cash you cannot use.
 
@@ -252,9 +252,9 @@ This table holds only the company, bank, accountant, legal review and India-side
 
 | Country | First year, Minimum | First year, Recommended | First year, Maximum | Yearly after, Recommended |
 |---|---|---|---|---|
-| UAE, company only | Rs 2,28,574 | Rs 4,64,324 | Rs 14,34,464 | Rs 4,64,324 |
+| UAE, company only | Rs 2,28,574 | Rs 4,64,324 | Rs 14,68,964 | Rs 4,64,324 |
 | UAE, legal review, one time | Rs 0 | Rs 2,30,000 | Rs 6,90,000 | Rs 0 |
-| **UAE, together** | **Rs 2,28,574** | **Rs 6,94,324** | **Rs 21,24,464** | **Rs 4,64,324** |
+| **UAE, together** | **Rs 2,28,574** | **Rs 6,94,324** | **Rs 21,58,964** | **Rs 4,64,324** |
 | **USA, together** | **Rs 4,03,750** | **Rs 6,33,250** | **Rs 16,93,880** | **Rs 1,74,250** |
 | **Australia, together** | **Rs 4,83,616** | **Rs 9,03,616** | **Rs 17,67,584** | **Rs 5,56,752** |
 | India side, per subsidiary | Rs 60,000 | Rs 1,20,000 | Rs 1,80,000 | Rs 70,000 |
@@ -265,7 +265,7 @@ The Master Price List shows Rs 2,30,000, Rs 6,94,600, Rs 6,33,000 and Rs 9,02,00
 
 | Year | What runs | Minimum | Recommended | Maximum |
 |---|---|---|---|---|
-| Year 2 | UAE set-up, India filings | Rs 2,88,574 | Rs 8,14,324 | Rs 23,04,464 |
+| Year 2 | UAE set-up, India filings | Rs 2,88,574 | Rs 8,14,324 | Rs 23,38,964 |
 | Year 3 | UAE renewal, USA and Australia set-up | Rs 12,20,940 | Rs 22,11,190 | Rs 49,74,718 |
 | Year 4 | All three running | Rs 7,17,929 | Rs 13,05,326 | Rs 29,36,984 |
 | Year 5 | All three, plus audit and US state filings | Rs 10,86,979 | Rs 19,76,326 | Rs 44,46,734 |
@@ -336,7 +336,7 @@ The sequence that follows from this:
 | Forgetting Form 5472 for the US subsidiary | US$25,000, about Rs 21.25 lakh, per failure | Name it in the CPA engagement letter |
 | Missing the Annual Performance Report on 31 December | Rs 7,500 plus 0.025% a year, and no more money leaves India | Calendar the APR and the 15 July FLA return |
 | Invoicing a non-registered UAE buyer from India | Registration from the first dirham; late registration AED 10,000, Rs 2,30,000 | Check the buyer's tax number, or use a merchant of record |
-| Choosing DMCC for the Dubai address | Rs 21,24,464 in year one plus AED 50,000, Rs 11,50,000, parked | RAKEZ or SHAMS; no customer asks about the zone |
+| Choosing DMCC for the Dubai address | Rs 21,58,964 in year one plus AED 50,000, Rs 11,50,000, parked | RAKEZ or SHAMS; no customer asks about the zone |
 | Taking the cheapest Australian nominee director | The director carries legal liability; A$500 is not a market price | Budget A$6,000 plus GST from a registry agent |
 | Hiring a UAE-resident sales person in Year 2 | Rs 33 lakh to Rs 50 lakh a year against Rs 17.1 lakh of revenue | Commission-only reseller until about 20 customers |
 | Planning the subsidiary before the first audit | The bank blocks Form FC; there is no net worth to measure | Wait for the August 2027 audited accounts |

@@ -306,7 +306,7 @@ Claude Code is the AI pair programmer. It is included in the Pro, Max and Team p
 |---|---|---|---|---|---|---|
 | Claude Free | Anthropic, Free | US$0 | 0 | per month | No Claude Code; chat only | Verified {SW:S1} |
 | Claude Pro, monthly billing | Anthropic, Pro | US$20 | 1,700 | per month | Includes Claude Code; 5x Free usage per session | Verified {SW:S1} |
-| Claude Pro, yearly billing | Anthropic, Pro | US$17 (US$200 upfront) | 1,445 | per month | Same limits as monthly | Verified {SW:S1} |
+| Claude Pro, yearly billing | Anthropic, Pro | US$17 (US$204 upfront) | 1,445 | per month | Same limits as monthly | Verified {SW:S1} |
 | Claude Max 5x | Anthropic, Max 5x | US$100 | 8,500 | per month | 5x Pro's session allowance | Verified {SW:S1,SW:S2} |
 | Claude Max 20x | Anthropic, Max 20x | US$200 | 17,000 | per month | 20x Pro; this is the plan's tier | Verified {SW:S2} |
 | Claude Team, Standard seat | Anthropic, Team | US$25 monthly, US$20 yearly | 1,700 to 2,125 | per seat per month | Includes Claude Code | Verified {SW:S1} |
@@ -1253,7 +1253,7 @@ This table compares every money assumption in the BRD with the price found in Se
 | Startup India, Udyam, Meta, Razorpay | Rs 0 | Rs 0 at all four | Fits. Each still needs the company documents |
 | Claude Max 20x | Rs 17,000 a month | US$200 = Rs 17,000, or Rs 23,999 including GST on rupee billing | Risk, not an error. Pay in US dollars with the GSTIN on file, or the line rises by Rs 6,999 a month |
 | Claude API for AI Insights | Rs 250 per user a month | Sonnet 5 at US$2 and US$10 per million tokens | Fits. Rs 250 buys about 1.2M input and 50k output tokens a month |
-| Google Workspace | Rs 300 a month | Business Starter Rs 270 + GST = Rs 319; Business Base Rs 99 | Slightly low with GST. Move to Business Base and save about Rs 220 a month |
+| Google Workspace | Rs 300 a month | Business Starter Rs 270 + GST = Rs 319; Business Base Rs 99 | Slightly low with GST. Move to Business Base and save Rs 183 a month against the Rs 300 budget line |
 | Password manager | Rs 200 a month | Bitwarden Free Rs 0; Bitwarden Premium Rs 140 | Fits, with room. Start on Free |
 | Sentry error tracking | Rs 2,200 a month from December | US$26 = Rs 2,210 on yearly billing; Rs 2,465 on monthly | Fits only on yearly billing. Sentry for Startups could make it Rs 0 for 12 months |
 | Shared support inbox | Rs 300 a month from December | Not priced in this research pass | Unchecked. Zoho Desk is inside the Zoho for Startups credits; confirm before the December start |
@@ -1286,7 +1286,7 @@ This table compares every money assumption in the BRD with the price found in Se
 | Founder laptop, if needed | Rs 80,000 | 16 GB Windows Rs 62,800 to 77,490; 8 GB MacBook Neo Rs 79,900 | Fits for Windows. A 16 GB MacBook Air is now Rs 1,49,900 |
 | Staff laptops | Rs 35,000, then Rs 60,000, then Rs 70,000 | Cheapest listed laptop Rs 51,000; cheapest 16 GB developer machine Rs 62,800 | Too low. Budget about Rs 50,000 for a non-developer and Rs 65,000 to 80,000 for a developer |
 | Onboarding and customer success executive | Rs 30,000 a month from April 2027 | Tier 2 Rs 20,000 to 30,000; metro Rs 30,000 to 50,000 | Fits in Patna or Lucknow only. In a metro it buys entry level |
-| Inside sales executive | Rs 25,000 a month during the ramp | Tier 2 fixed pay Rs 18,000 to 30,000, plus 10% to 30% incentive | Incomplete. Add Rs 3,000 to 7,500 a month of incentive after the ramp |
+| Inside sales executive | Rs 25,000 a month during the ramp | Tier 2 fixed pay Rs 18,000 to 30,000, plus 10% to 30% incentive | Incomplete. Add Rs 2,500 to 7,500 a month of incentive after the ramp |
 | Full-stack engineer | Rs 70,000 a month from 16 August 2027 | Tier 2 mid-level Rs 5 to 9 lakh; metro mid-level Rs 8 to 15 lakh | Fits. It buys a strong 3 to 5 year developer working remotely from a Tier 2 city |
 | Part-time tele-caller | Inside the marketing budget | Patna tele-calling Rs 12,000 to 18,000 full time | Check the fit. A half-day caller costs about Rs 6,000 to 9,000 a month |
 | Provident fund ceiling | Built on Rs 15,000 | Raised to Rs 25,000 on 16 September 2026 | Wrong from Year 3. Employer PF cost per covered person rises from Rs 1,950 to up to Rs 3,250 a month |

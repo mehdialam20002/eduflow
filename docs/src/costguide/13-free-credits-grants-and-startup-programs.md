@@ -205,6 +205,8 @@ Every Recommended figure here is Rs 0, because the BRD plan takes no grant, no l
 | Mudra Kishore interest, Rs 5 lakh, 3 years | Monthly EMI | Rs 0 | Rs 0 | Rs 89,000 total | Yes. Customer advances cost 0% |
 | Grant or subsidy consultant (one-time) | On signing | Rs 0 | Rs 0 | Rs 0 | Yes, always. Nothing here needs one |
 
+> **Note:** The CGTMSE row is a substitution, not a level. The fee is charged only if you take the loan, so Minimum shows the cheapest guarantee rate on a Rs 20 lakh loan and Recommended shows Rs 0 because the plan takes no loan at all. No column total changes, because the plan never borrows.
+
 > **Rule:** Government registrations, grants and loans in this chapter carry no GST, because a grant or a loan is not a supply. Indian vendor credits such as Zoho reduce the invoice, so the 18% GST falls with it; since that GST was claimable anyway, your real saving is the base price, not the base price plus GST. Confirm the treatment with the CA before the first wallet redemption.
 
 ## What all of this is worth in Year 1 and Year 2

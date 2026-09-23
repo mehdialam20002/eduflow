@@ -80,14 +80,14 @@ Fourteen days. "Cost today" is cash leaving the bank at the Minimum level.
 | Thu 24 Sep | File SPICe+ Part A with two name choices | Rs 1,000 | The company name |
 | Fri 25 Sep | Draft MoA and AoA; the object clause must name software as a service. Pick the bank in AGILE-PRO-S | Rs 0 | Part B, bank account |
 | Sat 26 to Sun 27 Sep | Name approval usually lands. Set up Node 24, PostgreSQL 16, Redis, Docker, GitHub, Claude Code | Rs 0 | Day 1 |
-| Mon 28 Sep | File SPICe+ Part B with INC-33, INC-34, INC-9, AGILE-PRO-S. Pay stamp duty, PAN and TAN | Rs 2,175 | The certificate |
+| Mon 28 Sep | File SPICe+ Part B with INC-33, INC-34, INC-9, AGILE-PRO-S. Pay stamp duty, PAN and TAN | Rs 1,965 | The certificate |
 | Tue 29 to Wed 30 Sep | MCA review. Answer any resubmission the same day | Rs 0 | The certificate |
 | Thu 1 Oct | Open the Anthropic account, plan starting Day 1, not today | Rs 0 | The sprint |
 | Fri 2 Oct | Set up mail on the domain: Zoho Mail Free or Workspace Business Base | Rs 0 to 117 | Vendor signups |
 | Sat 3 to Sun 4 Oct | Freeze the scope of the 16 Phase 1 modules | Rs 0 | Day 1 |
 | Mon 5 Oct, Day 1 | Write code | Rs 0 | The product |
 
-Add the column: Rs 4,744 (domain 744 + signatures 4,000) + Rs 1,000 + Rs 2,175 (PAN and TAN 155, stamp duty 1,010, INC-20A 400, ADT-1 400) = Rs 7,919. The trademark Rs 4,500 follows the certificate, so Rs 4,290 of the Rs 12,209 Minimum is spent after Day 1.
+Add the column: Rs 4,744 (domain 744 + signatures 4,000) + Rs 1,000 + Rs 1,965 (PAN and TAN 155, stamp duty 1,010, INC-20A 400, ADT-1 400) = Rs 7,709. The trademark Rs 4,500 follows the certificate, so Rs 4,500 of the Rs 12,209 Minimum is spent after Day 1.
 
 ## What lands after Day 1
 

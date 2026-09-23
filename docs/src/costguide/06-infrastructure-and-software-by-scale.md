@@ -142,12 +142,12 @@ Backups: RDS gives you backup storage equal to your provisioned storage for free
 |---|---|---|
 | ARM (Graviton) Fargate instead of x86 | Rs 7,080 | Low. Node.js 24 runs on ARM |
 | Valkey instead of Redis OSS on ElastiCache | Rs 4,070 | Low. BullMQ works on Valkey |
-| VPC endpoints and public subnets, not 2 NAT gateways | Rs 8,460 | Low. Tighten security groups |
+| VPC endpoints and public subnets, not 2 NAT gateways | Rs 8,905 | Low. Tighten security groups |
 | CloudWatch Logs Infrequent Access class | Rs 1,281 | Low. Slower search only |
 | Drop the read replica until reports slow down | Rs 17,365 | Medium. Watch p95 report time |
 | Single-AZ database instead of Multi-AZ | Rs 17,363 | High. Do not do this |
 
-ARM check: an x86 task of 1 vCPU and 2 GB costs Rs 2,641 + 2 x Rs 289 = Rs 3,219, against Rs 1,803 on ARM. The difference is Rs 1,416 x 5 tasks = Rs 7,080. Valkey check: Rs 10,176 - Rs 8,141 = Rs 2,035 per node x 2 = Rs 4,070.
+ARM check: an x86 task of 1 vCPU and 2 GB costs Rs 2,641 + 2 x Rs 289 = Rs 3,219, against Rs 1,803 on ARM. The difference is Rs 1,416 x 5 tasks = Rs 7,080. Valkey check: Rs 10,176 - Rs 8,141 = Rs 2,035 per node x 2 = Rs 4,070. NAT check: every row here is priced at the 500 GB in the bill above, where two gateways cost Rs 9,330 and VPC endpoints cost 500 x Rs 0.85 = Rs 425, so the saving is Rs 9,330 - Rs 425 = Rs 8,905. At the 1 TB used in the cost-traps table later, the same change saves Rs 10,956.
 
 **Minimum Rs 88,587** is the table above without the read replica and its storage: Rs 1,05,952 - Rs 14,023 - Rs 3,342. **Maximum Rs 2,60,000** is one size larger everywhere on x86 with Redis OSS and an always-on staging copy.
 
@@ -209,7 +209,7 @@ Team tools grow with headcount, not with customers. Canon headcount is 4, 14, 40
 
 | Tool | Price basis | Year 1, 4 people | Year 3, 40 people | Year 5, 220 people |
 |---|---|---|---|---|
-| Claude seats | Max 20x Rs 17,000; Team Premium Rs 8,500; Standard Rs 1,700 | Rs 25,500 | Rs 1,63,200 | Rs 8,22,800 |
+| Claude seats | Max 20x Rs 17,000; Team Premium Rs 8,500; Pro or Team Standard Rs 1,700 | Rs 18,700 | Rs 1,63,200 | Rs 8,22,800 |
 | GitHub Team | Rs 340 per developer | Rs 680 | Rs 4,760 | Rs 22,440 |
 | Figma | Full seat Rs 1,360, dev seat Rs 1,020 | Rs 0 | Rs 6,800 | Rs 34,000 |
 | Linear | Basic Rs 850, Business Rs 1,360 | Rs 0 | Rs 17,000 | Rs 1,36,000 |
@@ -217,9 +217,11 @@ Team tools grow with headcount, not with customers. Canon headcount is 4, 14, 40
 | Google Workspace | Starter Rs 270, Standard Rs 1,080 | Rs 1,080 | Rs 10,800 | Rs 2,37,600 |
 | Bitwarden | Teams Rs 340, Enterprise Rs 510 | Rs 1,360 | Rs 13,600 | Rs 1,12,200 |
 | Docker Business | Rs 2,040 per developer | Rs 0 | Rs 0 | Rs 1,34,640 |
-| **Total a month** | | **Rs 28,620** | **Rs 2,25,960** | **Rs 16,22,220** |
+| **Total a month** | | **Rs 21,820** | **Rs 2,25,960** | **Rs 16,22,220** |
 
-Year 1 check: Rs 28,620 of team tools plus Rs 2,980 of watching tools plus Zoho Books Standard at Rs 749 and a shared support inbox at Rs 300 comes to Rs 32,649, against the BRD's Rs 36,000 in September 2027. The Rs 3,351 gap is small extras and help-desk seats.
+Year 1 Claude seats are one Max 20x for the founder at Rs 17,000 plus one Pro seat at Rs 1,700 for the engineer who joins in August 2027, which is Rs 18,700. Do not buy him a second Max 20x; move him up only after he hits the usage limit twice in one week (see *Months 7 to 12: First Hires* and *People Costs and Salaries*).
+
+Year 1 check: Rs 21,820 of team tools plus Rs 2,980 of watching tools plus Zoho Books Standard at Rs 749 and a shared support inbox at Rs 300 comes to Rs 25,849, against the BRD's Rs 36,000 in September 2027. The Rs 10,151 gap is deliberate room, not a missing line. The BRD adds Rs 10,000 in August for the engineer's AI coding seat and developer tools, and the Pro seat uses only Rs 1,700 of that; the rest sits ready for help-desk seats, extra Sentry errors, and the day the engineer does need a Max seat.
 
 Docker Desktop is free while EduFlow has fewer than 250 staff and under US$10 million of revenue. Year 5 targets, 220 people and Rs 75.3 crore (about US$8.9 million), sit just under both lines, so Docker Business is budgeted from Year 5 as a safety margin. Jira Standard is the usual alternative to Linear; it is not in the Master Price List, so budget the Linear figure and check Atlassian's own page before switching (Estimate).
 

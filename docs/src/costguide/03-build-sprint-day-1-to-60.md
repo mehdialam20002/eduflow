@@ -21,9 +21,9 @@ The three levels used in this guide are **Minimum** (free tiers only, pay what i
 |---|---|---|---|---|
 | Minimum | Rs 2,185 | Rs 4,440 | Rs 0 | Rs 6,625 |
 | Recommended (BRD) | Rs 21,500 | Rs 22,500 | Rs 2,500 | Rs 46,500 |
-| Maximum | Rs 39,373 | Rs 39,373 | Rs 300 | Rs 79,046 |
+| Maximum | Rs 36,908 | Rs 36,908 | Rs 2,765 | Rs 76,581 |
 
-The Recommended column is the BRD plan, line for line: October = tools Rs 17,500 + hosting Rs 4,000; November = tools Rs 17,500 + hosting Rs 5,000. The last column holds the two subscriptions that switch on inside Day 58: Sentry Team Rs 2,200 and the shared support inbox Rs 300.
+The Recommended column is the BRD plan, line for line: October = tools Rs 17,500 + hosting Rs 4,000; November = tools Rs 17,500 + hosting Rs 5,000. The last column holds the two subscriptions that switch on inside Day 58: Sentry Team Rs 2,200 and the shared support inbox Rs 300. At the Maximum level that column is Rs 2,765, because Sentry there is billed monthly at Rs 2,465.
 
 ```text
 +--------------------------------------------------------------------+
@@ -52,7 +52,7 @@ This one line is 73% of the Recommended sprint bill: Rs 34,000 of Rs 46,500 over
 |---|---|---|---|
 | Claude Free | US$0 | Rs 0 | Chat only. No Claude Code. Useless here |
 | Claude Pro, monthly | US$20 | Rs 1,700 | Claude Code included; smallest session allowance |
-| Claude Pro, yearly | US$17 | Rs 1,445 | US$200 paid upfront; same limits |
+| Claude Pro, yearly | US$17 | Rs 1,445 | US$204 paid upfront; same limits |
 | Claude Max 5x | US$100 | Rs 8,500 | Five times Pro's session allowance |
 | Claude Max 20x | US$200 | Rs 17,000 | Twenty times Pro. This is the BRD plan |
 
@@ -118,7 +118,7 @@ The downgrade rule matters. From December the work turns to pilot fixes, sales a
 | Docker Personal | Free under 250 staff and US$10 million revenue | Year 6 at the earliest |
 | PostgreSQL 16 and Redis 7 in Docker | Free forever | Never, for development work |
 
-GitHub stays free for the whole sprint. A full CI run on the monorepo (install, typecheck, lint, unit tests) takes about 6 minutes (Estimate; reasoning: a Node.js 24 monorepo of this size with a warm npm cache). 2,000 divided by 6 is about 333 runs a month, or 11 pushes a working day, and in the heaviest weeks you will push 15 times. Three fixes, in order: test locally before pushing, run the full matrix only on `main`, and use a path filter so client-only changes skip server tests. Extra Linux 2-core minutes cost Rs 0.51 each, so 1,000 extra minutes is Rs 510 a month.
+GitHub stays free for the whole sprint. A full CI run on the monorepo (install, typecheck, lint, unit tests) takes about 6 minutes (Estimate; reasoning: a Node.js 24 monorepo of this size with a warm npm cache). 2,000 divided by 6 is about 333 runs a month, or about 15 pushes a working day, and in the heaviest weeks you will push 15 times. Three fixes, in order: test locally before pushing, run the full matrix only on `main`, and use a path filter so client-only changes skip server tests. Extra Linux 2-core minutes cost Rs 0.51 each, so 1,000 extra minutes is Rs 510 a month.
 
 Docker Desktop is free under the Personal licence while the company has fewer than 250 employees **and** under US$10 million of yearly revenue. Both tests must pass. EduFlow's Year 5 targets are 220 people and Rs 75.33 crore, about US$8.86 million at Rs 85, so both sit close to the line. Budget Docker Business at US$24 (Rs 2,040) per developer a month from Year 6. This is a licence rule, not a technical block.
 
@@ -158,7 +158,7 @@ Railway has no Mumbai region; Singapore is nearest, about 60 to 90 milliseconds 
 | PostHog | 1M events, 5,000 recordings a month | Well inside Year 1, not the sprint | Rs 0 |
 | Better Stack | 10 monitors, 1 status page, 3 GB logs | Log retention of 3 days is too short at launch | Rs 0 |
 
-Sentry Developer allows one user and 5,000 errors a month, enough while you are the only person looking. Two things end it: a second person needing access (the first engineer joins 16 August 2027), and volume, because one bad deploy in a pilot throws thousands of errors in an hour. The BRD starts Team on Day 58. Team costs US$26 (Rs 2,210) yearly or US$29 (Rs 2,465) monthly; take monthly in December until the pilot proves the product.
+Sentry Developer allows one user and 5,000 errors a month, enough while you are the only person looking. Two things end it: a second person needing access (the first engineer joins 16 August 2027), and volume, because one bad deploy in a pilot throws thousands of errors in an hour. The BRD starts Team on Day 58. Team costs US$26 (Rs 2,210) yearly or US$29 (Rs 2,465) monthly. The BRD budgets Rs 2,200, which is the yearly price, so take the yearly plan from December.
 
 PostHog's free 1 million events a month is far above sprint needs. The ceiling arrives inside Year 1: at 60,000 active students, 1 million events is only 16.7 per student a month. Set a billing limit on the day you create the account. Under DPDP rules, never record sessions of student or child users.
 
@@ -186,7 +186,7 @@ Buy the password manager on Day 1. In the first week you will create about 20 ac
 | Workspace Business Starter | Rs 270 | Rs 319 | 30 GB pooled, up to 300 users |
 | Workspace Business Standard | Rs 1,080 | Rs 1,274 | 2 TB pooled; too much for one founder |
 
-The BRD budgets Rs 300 a month for one user. That is Business Starter before GST (Rs 270) and Rs 319 with GST, so the plan is Rs 19 short. Two honest choices: accept Rs 319, or take Business Base at Rs 117 with GST and cut the line by Rs 202 a month, Rs 1,212 over the six-month plan. The GST is claimable either way once registered.
+The BRD budgets Rs 300 a month for one user. That is Business Starter before GST (Rs 270) and Rs 319 with GST, so the plan is Rs 19 short. Two honest choices: accept Rs 319, or take Business Base at Rs 117 with GST and cut the Rs 300 budget line by Rs 183 a month, Rs 1,098 over the six-month plan. The GST is claimable either way once registered.
 
 > **Founder note:** Use `mehdi@eduflow.app`, never a Gmail address. Meta Business verification, Razorpay onboarding and DLT registration all check that the email domain matches the company website. A free Zoho Mail account on the real domain passes; Gmail does not.
 
@@ -215,7 +215,7 @@ Figures are per month unless stated. US dollar prices exclude Indian GST; 18% IG
 | PostHog and Better Stack | Never | Rs 0 | Rs 0 | Rs 0 | Free plans cover 1M events and 10 monitors |
 | Shared support inbox | Day 58 | Rs 0 | Rs 300 | Rs 300 | Yes to Day 57. Use the Workspace inbox |
 
-In a range, the lower figure is October and the higher is November. The Maximum column adds to Rs 39,673, of which Rs 300 starts on 1 December, so October and November are Rs 39,373 each.
+In a range, the lower figure is October and the higher is November. The Maximum column adds to Rs 39,673, of which Sentry Rs 2,465 and the support inbox Rs 300 start on 1 December, so October and November are Rs 36,908 each and the 1 December start is Rs 2,765. The Maximum sprint total is Rs 76,581.
 
 ## Week by week spend calendar
 
@@ -299,13 +299,13 @@ The premium theme and paid course bands are **Estimates**. Reasoning: neither is
 3. Turn on a billing limit on PostHog, Railway and AWS on the day each account is created.
 4. Review the bill line by line on the first Monday of November and December. Any line above plan needs a written reason.
 5. Buy nothing new between Day 1 and Day 28 except AWS, SES and the WhatsApp test number.
-6. If the bank balance falls below three months of spend (about Rs 2,40,000 at sprint rates), stop and re-read *Funding Plan and Cash Management*.
+6. If the bank balance falls below three months of spend (about Rs 2,40,000 at the full monthly plan rate of about Rs 80,000 a month), stop and re-read *Funding Plan and Cash Management*.
 
 ## Key takeaways
 
 - The 60-day build costs **Rs 46,500** at the Recommended level: Rs 21,500 in October, Rs 22,500 in November and Rs 2,500 of December subscriptions starting on Day 58.
 - The Claude Max 20x subscription is Rs 34,000 of that Rs 46,500. It is the whole engineering budget, and paying in US dollars instead of rupees is likely to save Rs 5,472 to Rs 12,794 over the two months.
-- The bare Minimum sprint is Rs 6,625 and the sensible Maximum is Rs 79,046. Above the Maximum you are buying comfort, not speed.
+- The bare Minimum sprint is Rs 6,625 and the sensible Maximum is Rs 76,581. Above the Maximum you are buying comfort, not speed.
 - Vercel Hobby bans commercial use, so Vercel Pro at Rs 1,700 a month is unavoidable from the day anything is public, and certainly by Day 40.
 - GitHub, Docker Personal, PostHog, Better Stack, Grafana, Figma Starter, Cloudflare, Bruno and local Postgres and Redis all stay at Rs 0 for the whole sprint.
 - Two months out of six cost 26.4% of the six-month budget, because marketing and customer costs only start in January 2027.

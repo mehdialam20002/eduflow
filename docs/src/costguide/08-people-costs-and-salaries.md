@@ -91,7 +91,7 @@ The four Labour Codes started on 21 November 2025. State rules are still being n
 | Professional tax | State rule | Deducted from pay, not an employer cost | Rs 2,500 a year each | Nil in UP, Delhi, Haryana, Rajasthan |
 | Labour welfare fund | State rule | Employer Rs 4.50 to Rs 150 a year | Rs 150 a year each | Nil in Bihar, UP, Rajasthan |
 
-The provident fund ceiling rose from Rs 15,000 to Rs 25,000 on 16 September 2026, the first change since 2014. The BRD was built on Rs 15,000, so from Year 3 each covered person costs at most Rs 3,250 a month instead of Rs 1,950: about 4% more on a Rs 80,000 salary, which the Year 3 loaded cost absorbs.
+The provident fund ceiling rose from Rs 15,000 to Rs 25,000 on 16 September 2026, the first change since 2014. The BRD was built on Rs 15,000, so from Year 3 each covered person costs at most Rs 3,250 a month instead of Rs 1,950: about 1.6% more on a Rs 80,000 salary, which the Year 3 loaded cost absorbs.
 
 **Statutory bonus, worked.** Bonus is calculated on Rs 7,000 or the state minimum wage, whichever is higher, not on full pay. At 8.33% on Rs 7,000 that is 8.33% x Rs 7,000 x 12 = **Rs 6,997 a year**. At the maximum 20% it is Rs 16,800. Budget the minimum.
 
@@ -113,7 +113,7 @@ Annual CTC in rupees lakh, written **minimum / typical / high**. "Typical" is th
 | Field sales executive | 1.8/2.4/3.0 | 2.4/3.2/4.0 | Year 2 |
 | Sales manager or sales lead | 4.0/5.5/7.0 | 7.0/9.5/12.0 | Year 2 |
 
-Sales roles get incentives on top of fixed pay, commonly 10% to 30%: on the BRD's Rs 25,000 a month that is Rs 3,000 to Rs 7,500 once the ramp ends. Field sales also needs travel money: 50 km a day x 24 days x Rs 3.50 a km = **Rs 4,200 a month**, reimbursed against a trip log, never paid as salary.
+Sales roles get incentives on top of fixed pay, commonly 10% to 30%: on the BRD's Rs 25,000 a month that is Rs 2,500 to Rs 7,500 once the ramp ends. Field sales also needs travel money: 50 km a day x 24 days x Rs 3.50 a km = **Rs 4,200 a month**, reimbursed against a trip log, never paid as salary.
 
 ### Product and engineering roles
 
@@ -219,7 +219,7 @@ Working, at the canon rates of US$1 = Rs 85, A$1 = Rs 56 and AED 1 = Rs 23:
 
 - **UAE.** Salary AED 13,053 a month x 23 = Rs 3,00,219. End-of-service benefit about 6% of basic (Estimate: UAE law gives roughly 21 days of basic pay a year for the first five years) = Rs 10,808. Visa AED 3,500 + slot AED 1,850 = Rs 1,23,050, over 24 months = Rs 5,127. Total Rs 3,16,154. Medical cover is compulsory for a visa holder and is quoted separately by the free zone.
 - **USA.** US$80,000 base x 1.25 for payroll taxes and health insurance (Estimate: 7.65% Social Security and Medicare, plus unemployment insurance and a health plan) = US$1,00,000 a year = Rs 85,00,000, or Rs 7,08,333 a month. An Employer of Record avoids running payroll in each state for a monthly fee (Estimate: US$500 to US$800; no vendor page was checked, so get a written quote).
-- **Australia.** A$1,10,000 x 1.12 for superannuation (Estimate: about 12% of ordinary pay; confirm the rate with the local accountant) = A$1,23,200 a year = Rs 68,99,200, or Rs 5,74,933 a month. A resident director service costs A$6,000 + GST, about Rs 3,36,000 a year, on top (see Master Price List).
+- **Australia.** A$1,10,000 x 1.12 for superannuation (Estimate: about 12% of ordinary pay; confirm the rate with the local accountant) = A$1,23,200 a year = Rs 68,99,200, or Rs 5,74,933 a month. A resident director service costs A$6,000 plus 10% GST, or A$6,600, about Rs 3,69,600 a year, on top (see Master Price List).
 
 > **Rule:** One Dubai account executive costs the same as ten Tier 2 support people, and one US customer success manager twenty-three. Sell abroad through partners until the country's own revenue covers its own payroll.
 

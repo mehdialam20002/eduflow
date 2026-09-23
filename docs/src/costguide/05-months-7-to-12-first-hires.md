@@ -83,7 +83,7 @@ Monthly gross pay. Tier 2 means Patna, Lucknow, Indore and Jaipur. Every row is 
 | Inside sales executive, fixed | Rs 18,000 to 30,000 | Rs 29,000 to 50,000 | Rs 30,000 to 50,000 | Rs 25,000 | Middle of the Tier 2 band |
 | Full-stack engineer, 3 to 5 years | Rs 42,000 to 75,000 | Rs 67,000 to 1,25,000 | Rs 75,000 to 1,25,000 | Rs 70,000 | Top of Tier 2, floor of metro |
 
-Rs 70,000 a month is Rs 8.4 lakh a year. Software engineers average Rs 5.00 lakh in Lucknow and Rs 5.70 lakh in Indore, so you pay about 40% above the local average. That buys a strong 3-to-5-year developer working remotely from Tier 2, not a weak metro hire.
+Rs 70,000 a month is Rs 8.4 lakh a year. Software engineers average Rs 5.00 lakh in Lucknow and Rs 5.70 lakh in Indore, so you pay about 47% to 68% above the local average. That buys a strong 3-to-5-year developer working remotely from Tier 2, not a weak metro hire.
 
 > **Warning:** Do not chase a senior engineer with this budget. Six years and above costs Rs 9 to 16 lakh in Tier 2 and Rs 15 to 28 lakh in a metro. If the only good candidate is senior, hire a junior at Rs 4 lakh instead.
 
@@ -174,7 +174,7 @@ The small-office row is an Estimate. A dedicated Patna desk costs Rs 5,500 all i
 
 The free plan already computes income tax, provident fund, state insurance and professional tax, so there is no payroll software line at any level except Maximum.
 
-Four things must happen every month once the first person joins: pay by the seventh, deposit TDS (tax deducted at source on salary) by the seventh of the next month, file Form 24Q quarterly, and issue Form 16 by 15 June 2028. The CA retainer covers all four, which is why it rises from Rs 5,000 in March to Rs 6,000 in April and Rs 10,000 by September.
+Four things must happen every month once the first person joins: pay by the seventh, deposit TDS (tax deducted at source on salary) by the seventh of the next month, file Form 24Q quarterly, and issue Form 16 by 15 June 2028. The CA retainer covers all four, which is why it rises from Rs 5,000 in March to Rs 7,000 in April and Rs 9,000 from July.
 
 ## Marketing ramp, month by month
 
@@ -208,7 +208,7 @@ Where the Rs 3,43,000 goes: tele-caller Rs 8,000 x 6 = Rs 48,000; field travel R
 
 The split is an Estimate; the monthly totals are the BRD's. Student counts assume 500 active students per organization, reaching the canon's 60,000 in September, so the unit number lands on the Year 1 target of Rs 0.47 (Rs 28,000 divided by 60,000). About Rs 10,800 of that carries the 300 free Starter organizations, roughly Rs 36 each.
 
-Messages and gateway split in the BRD ratio: about Rs 1,01,200 of message cost and Rs 64,200 of gateway fees. The gateway figure is 1.5% of Rs 36,40,700 collected with 18% GST added, so 1.5% of Rs 42,96,026 = Rs 64,440. Razorpay's real 2% would cost Rs 85,921, so move renewals to UPI AutoPay mandates at about 0.6%, which costs Rs 25,776.
+Messages and gateway split in the BRD ratio: about Rs 1,01,200 of message cost and Rs 64,200 of gateway fees. The gateway figure is 1.5% of Rs 36,40,700 collected with 18% GST added; the exact 1.5% calculation on Rs 42,96,026 gives Rs 64,440, rounded to Rs 64,200 in the split, which is what makes the Year 1 gateway line land on Rs 0.77 lakh. Razorpay's real 2% would cost Rs 85,921, so move renewals to UPI AutoPay mandates at about 0.6%, which costs Rs 25,776.
 
 Tools run Rs 23,000, Rs 23,000, Rs 24,000, Rs 26,000, Rs 36,000, Rs 36,000, totalling Rs 1,68,000. April adds a Rs 2,000 seat for customer success, June Rs 1,000 for a help centre as customers pass 70, July a Rs 2,000 sales seat, August Rs 10,000 for the engineer's AI coding seat and developer tools. The April Rs 23,000 is Claude Max 20x Rs 17,000 + Sentry Rs 2,200 + Google Workspace for 2 Rs 600 + password vault Rs 400 + support inbox Rs 300 + Zoho Books Rs 750 + CRM Rs 250 + other Rs 1,500, all foreign bills carrying reverse-charge GST you claim back.
 
@@ -228,7 +228,7 @@ Tools run Rs 23,000, Rs 23,000, Rs 24,000, Rs 26,000, Rs 36,000, Rs 36,000, tota
 
 Every line closes. Note the shape: 75% of the Year 1 budget falls in these six months, and salaries alone are 26% of the year.
 
-**EBITDA** (earnings before interest, tax, depreciation and amortisation) is the operating profit. Revenue of Rs 23,25,000 minus cost of Rs 23,77,500 = minus Rs 52,500, which the BRD shows as minus Rs 0.53 lakh, a margin of minus 2%. Year 1 ends almost exactly at break-even. That is what trigger-based hiring buys.
+**EBITDA** (earnings before interest, tax, depreciation and amortisation) is the operating profit. Revenue of Rs 23,24,600 minus cost of Rs 23,77,500 = minus Rs 52,900, which the BRD shows as minus Rs 0.53 lakh, a margin of minus 2%. Year 1 ends almost exactly at break-even. That is what trigger-based hiring buys.
 
 **Cash** is not profit, because a yearly plan brings twelve months of money in one day. Rs 7,21,700 in the bank on 31 March 2027, plus Rs 36,40,700 collected before GST (Estimate, derived from the BRD opening and closing balances), minus Rs 17,86,400 spent, gives Rs 25,76,000 on 30 September 2027. Of that, Rs 20,29,000 is customer advance money, so own cash = Rs 25,76,000 minus Rs 20,29,000 = Rs 5,47,000.
 
@@ -261,7 +261,7 @@ Read it on the first working day of every month. It never asks what month it is.
 | No engineer | Rs 80,700 with tools | Phase 3 slips; support eats build time | Buy 20 hours of freelance help at Rs 2,550 an hour |
 | Marketing cut to two channels | Rs 30,000 to 40,000 | Fewer leads; growth slows a month | Keep field travel and the referral reward |
 
-At Minimum you hire only the customer success executive, at Rs 22,000, and the six months cost Rs 9,01,700, or Rs 8,84,700 less than the plan. It also means no engineer, so Phase 3 slips or shrinks.
+At Minimum you hire only the customer success executive at Rs 22,000, take Rs 20,000 of founder pay and buy two months of freelance engineering at Rs 30,000. That is Rs 1,20,000 + Rs 1,32,000 + Rs 60,000 = Rs 3,12,000 of salary, and the six months cost Rs 9,01,700, or Rs 8,84,700 less than the plan. It also means no full-time engineer, so Phase 3 slips or shrinks.
 
 > **Rule:** Never let the bank balance fall below three months of spend. If it does, freeze hiring and cut marketing to the two best channels that week.
 
@@ -269,7 +269,7 @@ At Minimum you hire only the customer success executive, at Rs 22,000, and the s
 
 | Temptation | What it costs | What to do instead |
 |---|---|---|
-| Hiring all three before the triggers fire | About Rs 3,30,000 extra by September | Hire on MRR, not on a date |
+| Hiring all three before the triggers fire | About Rs 3,90,000 extra by September (inside sales +Rs 75,000, engineer +Rs 3,15,000) | Hire on MRR, not on a date |
 | A small office for four people | Rs 2.82 to 3.18 lakh one time (Estimate) | Remote plus day passes at Rs 249 to 750 |
 | A metro senior engineer | Rs 55,000 a month above the plan | A 3-to-5-year developer remote from Tier 2 |
 | LinkedIn Recruiter Lite for junior hires | Rs 8,260 a seat a month | Free Indeed and LinkedIn posts, Rs 400 Naukri |
@@ -285,7 +285,7 @@ At Minimum you hire only the customer success executive, at Rs 22,000, and the s
 - Every hire runs on an MRR trigger, never a date: Rs 1 lakh for founder step one and the support hire, Rs 3 lakh for step two and inside sales, Rs 4.5 lakh for the engineer.
 - At four people, provident fund, state insurance, gratuity and statutory bonus are all still off. The only people cost the BRD misses is group health, about Rs 700 a person a month, Rs 7,350 in total.
 - Hiring is nearly free: Rs 3,999 of job posts fills all three roles, and Zoho Payroll Free covers payroll up to 10 employees.
-- Year 1 ends at EBITDA of minus Rs 52,500 on revenue of Rs 23,25,000, with Rs 25,76,000 in the bank. Only Rs 5,47,000 is your own money, which is 1.4 months of September spend.
+- Year 1 ends at EBITDA of minus Rs 52,900 on revenue of Rs 23,24,600, with Rs 25,76,000 in the bank. Only Rs 5,47,000 is your own money, which is 1.4 months of September spend.
 - Fix two numbers before April: a laptop budget about Rs 49,490 short, and an inside sales incentive of Rs 2,500 to Rs 7,500 a month from Year 2.
 
 ## Sources

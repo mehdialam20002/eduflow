@@ -170,6 +170,8 @@ Four documents must exist before the first paid invoice: terms of service, priva
 | Lawyer review or drafting (one time, 18% reverse charge) | Nov 2026 | Rs 0 | Rs 25,000 | Rs 75,000 | No. Do not launch on templates alone |
 | DPDP notices and consent drafting (one time) | Before May 2027 | Rs 0 | Rs 0 | Rs 1,00,000 | Partly. Duties start May 2027, not now |
 
+> **Note:** The policy generator row is a substitution, not a level. At Minimum the Rs 6,100 generator does the lawyer's job, so it stands above the Rs 0 at Recommended and Maximum, where the lawyer does that job instead. The Rs 6,100 is a November cost, so the Rs 34,900 Minimum in the legal and compliance line of this chapter, which covers December to March, does not change.
+
 The Recommended Rs 25,000 sits in the **November** budget, not December. It is shown here because the work must finish before the January launch. Do not count it twice. At Minimum you use a generator such as iubenda Essentials (about Rs 6,100 a year) and write the DPA and consent text yourself. Those templates do not cover DPDP children's consent.
 
 > **Warning:** The BRD's Rs 25,000 buys a lawyer's review of documents you prepared, not a drafted set. A full SaaS set costs Rs 25,000 to Rs 75,000, and DPDP drafting alone is Rs 50,000 to Rs 1 lakh. Plan Rs 40,000 to Rs 75,000 more before May 2027, when verifiable parental consent duties begin.

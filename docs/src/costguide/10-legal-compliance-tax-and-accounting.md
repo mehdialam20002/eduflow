@@ -226,8 +226,8 @@ The trademark has a long tail. The Rs 4,500 a class filing fee is paid once, but
 | Year 2 | Cyber insurance, Rs 1 crore cover | Rs 60,000 | Groups ask for the certificate |
 | Year 2 | D&O insurance, Rs 1 crore cover | Rs 50,000 | Investors ask before taking a board seat |
 | Year 3 | ISO 27001, first year | Rs 3,00,000 | UAE schools and large Indian groups |
-| Year 3 | SOC 2 Type 2 with an automation platform | Rs 7,00,000 | USA pilots will not start without it |
 | Year 3 | US and Australia privacy counsel | Rs 2,40,000 | FERPA, COPPA and Privacy Act reviews |
+| Year 4 | SOC 2 Type 2 with an automation platform | Rs 7,00,000 | US districts and large school groups ask before they sign |
 
 The December 2026 test at Rs 20,000 is a real check of tenant isolation and login, but it is not an accepted VAPT report. Indian vendors say anything under about Rs 25,000 is an automated scan export. The report a school group will accept costs Rs 40,000 to Rs 1.5 lakh; Cybersecify's startup package is Rs 74,999 for one scope with a retest.
 
@@ -288,7 +288,7 @@ What sits inside the Recommended column:
 | Legal retainer and contracts | 1.20 | 2.50 | 8.00 | 25.00 |
 | Seed round legal work | 3.00 | 0 | 0 | 0 |
 | Security tests (VAPT) | 1.00 | 2.00 | 6.00 | 15.00 |
-| Certificates: ISO 27001, SOC 2, automation | 0 | 10.00 | 14.00 | 25.00 |
+| Certificates: ISO 27001 from Year 3, SOC 2 from Year 4, automation | 0 | 10.00 | 14.00 | 25.00 |
 | Data protection work | 0.75 | 0.50 | 4.00 | 10.00 |
 | Cyber and D&O insurance | 1.10 | 2.50 | 8.00 | 25.00 |
 | Trademark, foreign tax and filings | 1.70 | 1.90 | 6.50 | 16.00 |
@@ -351,5 +351,5 @@ Two facts in this chapter are not in the Master Price List. They were read as we
 - GST collected is not income. At Year 1 exit MRR you hold Rs 1,08,000 a month that belongs to the government. Own cash = bank balance minus GST due minus customer advances.
 - Put the GSTIN on every foreign vendor account on day one. It is the difference between Rs 17,000 and Rs 20,060 a month for Claude, or Rs 36,720 a year.
 - Do not choose the section 200 tax route while loss-making. It cannot be reversed and it blocks a section 140 holiday worth about Rs 1.95 crore across Years 3 to 5, even though only about 1.8% of recognised startups hold the certificate.
-- Security certificates are sales tools, not hygiene. ISO 27001 and SOC 2 cost Rs 10 to 20 lakh in year one and belong in Year 3, funded by the Rs 20 lakh compliance share of the seed round. The Rs 20,000 December 2026 test is the only one that cannot wait.
+- Security certificates are sales tools, not hygiene. ISO 27001 belongs in Year 3 and SOC 2 Type 2 in Year 4; together they cost Rs 10 to 20 lakh in their first year, funded by the Rs 20 lakh compliance share of the seed round. The Rs 20,000 December 2026 test is the only one that cannot wait.
 - Every large penalty here is a missed date, not a shortage of money. INC-20A can cost Rs 2,25,000 and a year of late AOC-4 and MGT-7A costs Rs 73,000, so the shared compliance calendar is the cheapest control you own.

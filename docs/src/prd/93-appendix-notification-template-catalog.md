@@ -2,7 +2,7 @@
 
 **In simple words:** This appendix collects, in one place, every message EduFlow can send — which event triggers it, on which channel, to whom, and the template text. The Notifications module delivers all of them.
 
-The catalog has **260 notification rules**. Template variables are written like `{{student_name}}`. WhatsApp and SMS templates must be approved by Meta and registered on DLT before use; see the *WhatsApp Module* and *SMS Module* chapters.
+The catalog has **319 notification rules**. Template variables are written like `{{student_name}}`. WhatsApp and SMS templates must be approved by Meta and registered on DLT before use; see the *WhatsApp Module* and *SMS Module* chapters.
 
 ## Dashboard Module
 
@@ -363,6 +363,82 @@ The catalog has **260 notification rules**. Template variables are written like 
 | `sms.wallet.low_balance` | SMS-BR-10 | In-app, Email, WhatsApp | Organization Admins | "SMS credits low: 480 left." |
 | `sms.wallet.exhausted` | SMS-BR-10 | In-app, Email | Organization Admins | "SMS credits are over. Alerts go by WhatsApp or email." |
 
+## Library Module
+
+| Event | Trigger | Channel | Recipient | Template text |
+|---|---|---|---|---|
+| `library.book.issued` | LIB-API-20 | In-app | Student, Parent | "{book} issued. Return by {dueDate}." |
+| `library.book.due_soon` | Job, 2 days before | WhatsApp, In-app | Parent, Student | "{book} is due on {dueDate}. Please return it." |
+| `library.book.overdue` | Job on days 1, 7, 14 | WhatsApp, In-app | Parent, Student | "{book} was due on {dueDate}. Fine so far Rs {fine}." |
+| `library.book.lost` | LIB-API-24 | WhatsApp, In-app | Parent | "{book} is marked lost. Charge Rs {amount} raised." |
+| `library.fine.charged` | LIB-API-25 | WhatsApp, In-app | Parent, Student | "Library fine Rs {amount} added to invoice {invoiceNo}, due {dueDate}." |
+| `library.fine.waived` | LIB-API-26 | In-app | Parent, Librarian | "Library fine of Rs {amount} was waived by {approver}." |
+| `library.reservation.ready` | Hold allocation | WhatsApp, In-app | Student | "{book} is ready at the desk. Collect it by {expiresAt}." |
+| `library.reservation.expired` | Nightly job | In-app | Student | "Your hold on {book} expired. Reserve it again if needed." |
+| `library.reservation.cancelled` | LIB-API-32, archive | In-app | Student | "Your hold on {book} was cancelled. Reason: {reason}." |
+| `library.import.completed` | Import worker | In-app, Email | Librarian | "Import finished: {ok} rows added, {failed} failed." |
+
+## Inventory Module
+
+| Event | Trigger | Channel | Recipient | Template text |
+|---|---|---|---|---|
+| `inventory.stock.low` | Balance crosses `reorderLevel` | In-app | Store keeper, Org Admin | "{{itemName}} is down to {{qty}} {{unit}} at {{campus}}. Level {{level}}." |
+| `inventory.purchase_order.submitted` | INV-API-24 | In-app, Email | Campus approvers | "{{poNumber}} for {{vendor}}, {{amount}}, is waiting for your approval." |
+| `inventory.purchase_order.approved` | INV-API-25 | In-app | PO creator | "{{poNumber}} was approved by {{approver}}. You can send it to the vendor." |
+| `inventory.stock.sold` | INV-API-35 | In-app, WhatsApp | Parent | "Dear {{guardianName}}, bill {{invoiceNo}} of {{amount}} for {{items}} is ready." |
+| `inventory.stock.adjusted` | INV-API-37 | In-app, Email | Org Admin | "{{rows}} corrections posted on {{date}}. Loss value {{lossValue}}." |
+| `inventory.asset.overdue` | Daily job past `expectedReturnDate` | In-app | Holder, Store keeper | "{{itemName}} ({{assetTag}}) was due back on {{dueDate}}." |
+
+## Transport Module
+
+| Event | Trigger | Channel | Recipient | Template text |
+|---|---|---|---|---|
+| `transport.student.boarded` | TRN-API-41 | In-app, WhatsApp | Parent | "Aarav boarded bus UP32 AB 4521 at 07:12." |
+| `transport.student.dropped` | TRN-API-41 | In-app, WhatsApp | Parent | "Aarav got off the bus at 14:38 at Patrakarpuram." |
+| `transport.student.not_boarded` | Mark or watcher job | In-app, WhatsApp, SMS | Parent, Transport Manager | "Aarav did not board the bus today at 07:12. Call 0522-4001." |
+| `transport.trip.completed` | TRN-API-42 | In-app | Transport Manager | "R3 PICKUP completed 07:45. 36 of 38 boarded." |
+| `transport.trip.cancelled` | TRN-API-43 | In-app, WhatsApp | Parents of the route | "Today's R3 bus is cancelled. Please arrange other transport." |
+| `transport.assignment.created` | TRN-API-25, 31, 32 | In-app, WhatsApp | Parent | "Aarav's bus R3, stop Patrakarpuram, pickup 07:12, Rs 1,800 a month." |
+| `transport.assignment.changed` | TRN-API-27 | In-app, WhatsApp | Parent | "From 12 Nov the stop is Vikas Khand Gate, 06:55, Rs 2,000." |
+| `transport.vehicle.document_expiring` | TRN-BR-03 | In-app, WhatsApp, Email | Manager, Principal | "PUC of UP32 AB 4521 expires 24 Aug 2027 (8 days)." |
+| `transport.driver.licence_expiring` | TRN-BR-03 | In-app, Email | Transport Manager | "Licence of Sanjay Kumar expires 05 Sep 2027." |
+| `transport.maintenance.due` | TRN-BR-03 | In-app | Transport Manager | "Service of UP32 CD 1189 is due 28 Aug 2027." |
+| `transport.trip.started`, `.assignment.suspended`, `.resumed`, `.ended` | TRN-API-39, 28, 29, 30 | In-app only | Manager, Parent | Short status line; no WhatsApp cost |
+
+## Hostel Module
+
+| Event | Trigger | Channel | Recipient | Template text |
+|---|---|---|---|---|
+| `hostel.allocation.reserved` | HST-API-19 | In-app, WhatsApp | Parent | "Bed 101-B in Tagore Boys Hostel is held for Aarav from 12 Oct 2027." |
+| `hostel.allocation.checked_in` | HST-API-22 | In-app, WhatsApp | Parent | "Aarav moved into room 101, bed B. Warden Ramesh Yadav, 0522-4001." |
+| `hostel.allocation.transferred` | HST-API-23 | In-app, WhatsApp | Parent | "From 15 Nov Aarav is in room 214, bed A. Rent Rs 6,000 a month." |
+| `hostel.allocation.vacated` | HST-API-24 | In-app, WhatsApp | Parent | "Aarav vacated on 20 Mar 2028. Deposit refund Rs 8,800 by 04 Apr." |
+| `hostel.allocation.cancelled` | HST-API-25 | In-app | Parent | "The hostel bed held for Aarav has been released." |
+| `hostel.attendance.marked` | HST-API-29 | In-app | Principal | "BH1 roll call done 21:38: 88 present, 2 absent, 1 on leave." |
+| `hostel.student.absent` | HST-BR-15 | In-app, WhatsApp, SMS | Parent, Principal | "Aarav was not in the hostel at the 21:30 roll call on 09 Nov. Call 0522-4001." |
+| `hostel.student.late_entry` | HST-API-29 | In-app, WhatsApp | Parent | "Aarav returned to the hostel at 22:10, after the 21:30 roll call." |
+| `hostel.leave.requested` | HST-API-35, 45 | In-app | Warden, Principal | "Out-pass request: Aarav, home visit, 12-14 Nov." |
+| `hostel.leave.approved` | HST-API-37 | In-app, WhatsApp | Parent, Student | "Out-pass approved for 12 to 14 Nov. Show the gate pass at the gate." |
+| `hostel.leave.rejected` | HST-API-38 | In-app, WhatsApp | Parent | "Out-pass for 12 to 14 Nov was not approved. Reason: exams week." |
+| `hostel.leave.cancelled` | HST-API-39, 46 | In-app | Warden, Parent | "The out-pass for 12 to 14 Nov has been cancelled." |
+| `hostel.leave.checked_out` | HST-API-40 | In-app, WhatsApp | Parent | "Aarav left the hostel at 19:04 with Sunita Devi." |
+| `hostel.leave.returned` | HST-API-41 | In-app, WhatsApp | Parent | "Aarav returned to the hostel at 20:12 on 14 Nov." |
+| `hostel.leave.overdue` | HST-BR-20 | In-app, WhatsApp, SMS | Parent, Warden, Principal | "Aarav has not returned. Expected 14 Nov 20:00. Please call 0522-4001." |
+| `hostel.visitor.checked_in` | HST-API-32 | In-app | Parent | "Sunita Devi met Aarav in the hostel at 18:32." |
+| `hostel.visitor.checked_out` | HST-API-33 | In-app | Warden | "Visitor Sunita Devi left at 19:40." |
+
+## Payroll Module
+
+| Event | Trigger | Channel | Recipient | Template text |
+|---|---|---|---|---|
+| `payroll.run.process_failed` | Job throws | In-app, Email | Accountant | "September 2027 payroll could not be calculated. Reason: {reason}." |
+| `payroll.run.approved` | PRL-API-22 | In-app | Accountant | "{approver} approved the September 2027 payroll." |
+| `payroll.run.paid` | PRL-API-24 | In-app | ORG_ADMIN | "September 2027 salary of Rs 16,22,500 marked paid on 30 Sep." |
+| `payroll.payslip.published` | PRL-API-26 | In-app, Email | The staff member | "Your September 2027 payslip is ready. Net pay Rs 45,000. Open the app to download it." |
+| `payroll.salary.revised` | PRL-API-12 | In-app | The staff member | "Your salary has been revised with effect from 1 April 2027." |
+| `payroll.loan.approved` | PRL-API-48 | In-app, WhatsApp | The staff member | "Your advance of Rs 18,000 is approved. Six EMIs of Rs 3,000 start from September." |
+| `payroll.tax_declaration.verified` | PRL-API-54 | In-app, Email | The staff member | "Your FY 2027-28 declaration is verified. Your monthly TDS is now Rs {tds}." |
+
 ## Certificates Module
 
 | Event | Trigger | Channel | Recipient | Template text |
@@ -388,6 +464,19 @@ The catalog has **260 notification rules**. Template variables are written like 
 | `analytics.schedule.failed` | Failed run or auto-pause | Email, In-app | Creator, owner | "{name} could not be sent: {reason}." |
 | `analytics.snapshot.computed` | Rebuild job wrote rows | None | - | Clears the analytics cache |
 | `analytics.snapshot.rebuilt` | Rebuild finished | In-app | Requester | "Numbers from {from} to {to} were recomputed." |
+
+## AI Insights Module
+
+| Event | Trigger | Channel | Recipient | Template text |
+|---|---|---|---|---|
+| `ai.insight.generated` | Row written | None | - | Feed and cache only |
+| `ai.insight.critical` | Severity CRITICAL | In-app, WhatsApp | `ai.manage` holders | "Urgent: {title}. Open EduFlow to see why." |
+| `ai.insight.acted` | AI-API-05 | In-app | Org Admin | "{user} acted on {title}." |
+| `ai.insight.dismissed` | AI-API-06 | None | - | Audit and accuracy job |
+| `ai.student.risk_level_changed` | Band moved | In-app | Class teacher, Principal | "{student} moved from {old} to {new} risk." |
+| `ai.risk_scores.computed` | Recompute done | In-app | Requester | "Risk scores for {scope} are updated." |
+| `ai.quota.threshold_reached` | 80% of a limit | Email, In-app | Org Admin | "You have used 80% of this month's AI allowance." |
+| `ai.quota.exhausted` | 100% of a limit | Email, In-app | Org Admin | "AI questions are paused until {resetDate}." |
 
 ## Settings Module
 

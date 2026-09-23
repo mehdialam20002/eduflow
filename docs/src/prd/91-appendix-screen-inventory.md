@@ -2,7 +2,25 @@
 
 **In simple words:** This appendix lists every screen that has a wireframe in this PRD, grouped by chapter. Use it as the checklist of pages to build and to test.
 
-The PRD contains **138 wireframed screens**. The screen ID (for example `FEE-S02`) is the same ID used in the module chapter, in the Claude Code prompts of the Founder Blueprint and in test cases.
+The PRD contains **169 wireframed screens**. The screen ID (for example `FEE-S02`) is the same ID used in the module chapter, in the Claude Code prompts of the Founder Blueprint and in test cases.
+
+## Authentication and Sessions
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| AUTH-S01 | Sign in | staff, web |
+| AUTH-S02 | Parent one-time code login | mobile |
+| AUTH-S03 | Accept invitation | teacher, web |
+| AUTH-S04 | Forgot password | web |
+| AUTH-S05 | My sessions | any user, web |
+
+## RBAC and Permissions Matrix
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| SET-S08 | Roles list | Organization Admin, web |
+| SET-S08 | Role editor, permissions tab | Organization Admin, web |
+| SET-S08 | Invite user | Organization Admin, web |
 
 ## Dashboard Module
 
@@ -257,6 +275,43 @@ The PRD contains **138 wireframed screens**. The screen ID (for example `FEE-S02
 | LIB-S11 | Stock verification | Librarian, web |
 | LIB-S12 | My library | Student Portal, mobile |
 
+## Inventory Module
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| INV-S03 | Item detail and ledger | Store keeper, web |
+| INV-S11 | Goods receipt | Store keeper, web |
+| INV-S12 | Issue slip | Store keeper, mobile |
+
+## Transport Module
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| TRN-S05 | Route builder | Transport Manager, web |
+| TRN-S06 | Assign students to a route | Transport Manager, web |
+| TRN-S09 | Boarding sheet | bus attendant, mobile web |
+| TRN-S10 | Bus tab | Parent Portal, mobile |
+| TRN-S12 | Compliance alerts | Transport Manager, web |
+
+## Hostel Module
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| HST-S03 | Occupancy map | Hostel Warden, web |
+| HST-S05 | Allocate bed | Hostel Warden, web |
+| HST-S07 | Night roll call | Hostel Warden, mobile |
+| HST-S11 | Hostel and out-pass | Parent, mobile |
+| HST-S09 | Visitor gate register | Hostel Warden, web |
+
+## Payroll Module
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| PRL-S06 | Payroll Run Detail | Accountant, web |
+| PRL-S04 | Assign Salary | Organization Admin, web |
+| PRL-S07 | Payslip Detail | Accountant, web |
+| PRL-S11 | My Payslips | staff, mobile |
+
 ## Certificates Module
 
 | Screen ID | Screen | Users and device |
@@ -277,6 +332,15 @@ The PRD contains **138 wireframed screens**. The screen ID (for example `FEE-S02
 | ANL-S06 | Schedule dialog | Organization Admin, web |
 | ANL-S09 | My batch attendance | Teacher, mobile |
 
+## AI Insights Module
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| AI-S01 | Insight feed | Organization Admin, web |
+| AI-S03 | At-risk students | Principal, web |
+| AI-S05 | Ask EduFlow | Accountant, web |
+| AI-S08 | My batch alerts | Teacher, mobile |
+
 ## Settings Module
 
 | Screen ID | Screen | Users and device |
@@ -286,3 +350,15 @@ The PRD contains **138 wireframed screens**. The screen ID (for example `FEE-S02
 | SET-S08 | Custom role editor | Organization Admin, web, Pro and Enterprise |
 | SET-S14 | Privacy request detail | Organization Admin, web |
 | SET-S17 | My privacy | Parent, mobile |
+
+## Integrations and Webhooks
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| INT-S01 | Integration Health | Super Admin, web |
+
+## Audit Logs, Backups and Disaster Recovery
+
+| Screen ID | Screen | Users and device |
+|---|---|---|
+| SET-S15 | Audit log | Organization Admin, web |

@@ -182,7 +182,7 @@ At Meta cost plus 15%, a utility or authentication message costs the school Rs 0
 
 | Pack | Price plus 18% GST | Utility messages | Marketing messages | Right for |
 |---|---|---|---|---|
-| Rs 499 | Rs 588.82 | 3,772 | 502 | Under 150 students, light use |
+| Rs 499 | Rs 588.82 | 3,773 | 502 | Under 150 students, light use |
 | Rs 1,999 | Rs 2,358.82 | 15,115 | 2,014 | 150 to 600 students |
 | Rs 7,999 | Rs 9,438.82 | 60,484 | 8,059 | Above 600 students, or a school group |
 
@@ -250,7 +250,7 @@ Per payment, on a Growth plan of Rs 2,499 plus GST = Rs 2,948.82:
 | Route | Fee after the GST credit | As a share of Rs 2,499 |
 |---|---|---|
 | Razorpay checkout, card or UPI | Rs 58.98 | 2.36% |
-| Cashfree checkout | Rs 57.48 | 2.30% |
+| Cashfree checkout | Rs 57.50 | 2.30% |
 | Razorpay card subscriptions | Rs 85.52 | 3.42% |
 | Razorpay Smart Collect, bank transfer | Rs 10.00 | 0.40% |
 | Cashfree UPI AutoPay debit | Rs 15.00 | 0.60% |
@@ -298,8 +298,10 @@ Stripe Atlas gives a US entity for Rs 42,500 one time plus Rs 8,500 a year, US t
 2. **Climb the ladder only on failure.** Push (Rs 0), in-app (Rs 0), email (Rs 0.0085), WhatsApp utility (Rs 0.115), SMS (Rs 0.17 to 0.25).
 3. **Email carries anything long.** Report cards, fee statements and circulars go by SES with an S3 pre-signed link. Never attach a PDF: attachment data costs Rs 10.20 a GB.
 4. **Give each institute its own WhatsApp number.** The free allowance of about 1,000 service messages is per number per month. At 120 customers that is Rs 0.115 x 1,000 x 120 = Rs 13,800 a month; at 500 customers in Year 2 it is Rs 6,90,000 a year (Estimate: the allowance is a partner figure, not on Meta's page).
-5. **Buy SMS in the 30,000 pack once demand is real**, because Rs 0.18 against Rs 0.25 is the difference between a 28% margin and no margin. **Put UPI first at checkout, but not at 2%:** the QR route is 0.99% and a mandate is Rs 15 flat.
-7. **Sell yearly plans and negotiate at Rs 5 lakh a month.** Twelve debits become one, saving Rs 165 a customer a year on a mandate, and Razorpay goes below 2% above that volume. **Read one number on the first Monday of each month:** message cost divided by usage revenue. Past 85%, a template has slipped into the marketing category.
+5. **Buy SMS in the 30,000 pack once demand is real**, because Rs 0.18 against Rs 0.25 is the difference between a 28% margin and no margin.
+6. **Put UPI first at checkout, but not at 2%.** The QR route is 0.99% and a mandate is Rs 15 flat.
+7. **Sell yearly plans and negotiate at Rs 5 lakh a month.** Twelve debits become one, saving Rs 165 a customer a year on a mandate, and Razorpay goes below 2% above that volume.
+8. **Read one number on the first Monday of each month:** message cost divided by usage revenue. Past 85%, a template has slipped into the marketing category.
 
 | Temptation | What it costs | What to do instead |
 |---|---|---|
