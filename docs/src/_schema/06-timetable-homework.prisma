@@ -1,0 +1,360 @@
+// 06-timetable-homework: period slots, weekly timetable with clash protection,
+// daily substitutions, homework, attachments and student submissions.
+
+enum PeriodSlotType {
+  PERIOD
+  BREAK
+  LUNCH
+  ASSEMBLY
+  ACTIVITY
+}
+
+enum SubstitutionStatus {
+  ASSIGNED
+  COMPLETED
+  CANCELLED
+}
+
+enum HomeworkStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED // past due date and no more submissions accepted
+  CANCELLED
+}
+
+enum HomeworkSubmissionMode {
+  ONLINE // students / parents upload files or text
+  OFFLINE // notebook checked in class; the teacher only marks the status
+  NOT_REQUIRED // reading / revision work
+}
+
+enum HomeworkSubmissionStatus {
+  PENDING
+  SUBMITTED
+  LATE
+  RESUBMIT_REQUESTED
+  GRADED
+  MISSING
+  EXCUSED
+}
+
+enum ClassSessionType {
+  REGULAR
+  EXTRA
+  DOUBT_CLEARING
+  REVISION
+  TEST_DISCUSSION
+  ONLINE
+}
+
+enum ClassSessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum StudyMaterialType {
+  NOTES
+  WORKSHEET // DPP / practice sheet
+  VIDEO_LINK
+  QUESTION_PAPER
+  SOLUTION
+  SYLLABUS
+  OTHER
+}
+
+// A row of the campus bell schedule: Period 1 08:00-08:40, Lunch 11:20-11:50.
+model PeriodSlot {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  campusId       String         @map("campus_id") @db.Uuid
+  shift          Shift          @default(FULL_DAY) // each shift has its own bell schedule
+  name           String         @db.VarChar(40)
+  slotType       PeriodSlotType @default(PERIOD) @map("slot_type")
+  startTime      String         @map("start_time") @db.VarChar(5) // HH:mm in the campus timezone
+  endTime        String         @map("end_time") @db.VarChar(5) // HH:mm in the campus timezone
+  sortOrder      Int            @default(0) @map("sort_order")
+  status         RecordStatus   @default(ACTIVE)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  timetableEntries   TimetableEntry[]
+  substitutions      Substitution[]
+  attendanceSessions AttendanceSession[]
+
+  @@unique([organizationId, campusId, shift, name])
+  @@index([organizationId, campusId, shift, sortOrder])
+  @@map("period_slots")
+}
+
+// One cell of a batch's weekly timetable. Rows are replaced (hard delete) when the timetable changes,
+// so the three unique keys below guarantee: no double booking of a batch, a teacher or a room.
+// Elective split: one row per elective group (groupLabel) in the same slot. Combined class (11-A + 11-B together):
+// one owner row holds staffId / roomId; follower rows keep them NULL and point to the owner with combinedWithEntryId.
+model TimetableEntry {
+  id                  String    @id @default(uuid()) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  campusId            String    @map("campus_id") @db.Uuid
+  academicYearId      String    @map("academic_year_id") @db.Uuid
+  batchId             String    @map("batch_id") @db.Uuid
+  weekDay             WeekDay   @map("week_day")
+  periodSlotId        String    @map("period_slot_id") @db.Uuid
+  subjectId           String?   @map("subject_id") @db.Uuid // null for non-subject periods (assembly, library, sports)
+  staffId             String?   @map("staff_id") @db.Uuid // teacher; NULLs never clash in the unique key
+  roomId              String?   @map("room_id") @db.Uuid // NULLs never clash in the unique key
+  groupLabel          String    @default("") @map("group_label") @db.VarChar(30) // "" = whole batch; otherwise the elective group, e.g. SANSKRIT
+  combinedWithEntryId String?   @map("combined_with_entry_id") @db.Uuid // follower row of a combined class: points to the owner row
+  label               String?   @db.VarChar(80) // shown when subjectId is null, e.g. "Library"
+  effectiveFrom       DateTime? @map("effective_from") @db.Date // informational; one timetable version is live per academic year
+  notes               String?   @db.VarChar(255)
+  createdById         String?   @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus          Campus           @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear    AcademicYear     @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  batch           Batch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  periodSlot      PeriodSlot       @relation(fields: [periodSlotId], references: [id], onDelete: Restrict)
+  subject         Subject?         @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  staff           Staff?           @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  room            Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  combinedWith    TimetableEntry?  @relation("TimetableCombined", fields: [combinedWithEntryId], references: [id], onDelete: Cascade)
+  combinedEntries TimetableEntry[] @relation("TimetableCombined")
+  substitutions   Substitution[]
+  classSessions   ClassSession[]
+
+  @@unique([organizationId, academicYearId, batchId, weekDay, periodSlotId, groupLabel], map: "uq_timetable_batch_slot") // batch clash (per elective group)
+  @@unique([organizationId, academicYearId, staffId, weekDay, periodSlotId], map: "uq_timetable_teacher_slot") // teacher clash
+  @@unique([organizationId, academicYearId, roomId, weekDay, periodSlotId], map: "uq_timetable_room_slot") // room clash
+  @@index([organizationId, campusId, academicYearId, weekDay])
+  @@index([organizationId, staffId, weekDay])
+  @@map("timetable_entries")
+}
+
+// Replacement teacher for one timetable entry on one date (absent teacher, leave).
+model Substitution {
+  id                String             @id @default(uuid()) @db.Uuid
+  organizationId    String             @map("organization_id") @db.Uuid
+  campusId          String             @map("campus_id") @db.Uuid
+  timetableEntryId  String             @map("timetable_entry_id") @db.Uuid
+  date              DateTime           @db.Date
+  periodSlotId      String             @map("period_slot_id") @db.Uuid // denormalised from the entry for the clash key
+  originalStaffId   String             @map("original_staff_id") @db.Uuid
+  substituteStaffId String?            @map("substitute_staff_id") @db.Uuid // null = free / self-study period
+  roomId            String?            @map("room_id") @db.Uuid // room override for the day
+  leaveRequestId    String?            @map("leave_request_id") @db.Uuid // leave that caused the substitution
+  reason            String?            @db.VarChar(255)
+  status            SubstitutionStatus @default(ASSIGNED)
+  notifiedAt        DateTime?          @map("notified_at") @db.Timestamptz(6)
+  assignedById      String?            @map("assigned_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus          Campus         @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  timetableEntry  TimetableEntry @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
+  periodSlot      PeriodSlot     @relation(fields: [periodSlotId], references: [id], onDelete: Restrict)
+  originalStaff   Staff          @relation("SubstitutionOriginalStaff", fields: [originalStaffId], references: [id], onDelete: Restrict)
+  substituteStaff Staff?         @relation("SubstitutionSubstituteStaff", fields: [substituteStaffId], references: [id], onDelete: SetNull)
+  room            Room?          @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  leaveRequest    LeaveRequest?  @relation(fields: [leaveRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, timetableEntryId, date])
+  @@unique([organizationId, substituteStaffId, date, periodSlotId], map: "uq_substitution_teacher_slot") // a substitute cannot cover two classes at once
+  @@index([organizationId, campusId, date])
+  @@index([organizationId, originalStaffId, date])
+  @@map("substitutions")
+}
+
+// Homework / assignment given to a batch for a subject.
+model Homework {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  organizationId      String                 @map("organization_id") @db.Uuid
+  campusId            String                 @map("campus_id") @db.Uuid
+  academicYearId      String                 @map("academic_year_id") @db.Uuid
+  batchId             String                 @map("batch_id") @db.Uuid
+  subjectId           String                 @map("subject_id") @db.Uuid
+  assignedById        String                 @map("assigned_by_id") @db.Uuid // teacher (Staff) who set the homework
+  title               String                 @db.VarChar(200)
+  description         String?                @db.Text
+  assignedDate        DateTime               @map("assigned_date") @db.Date
+  dueDate             DateTime               @map("due_date") @db.Date
+  submissionMode      HomeworkSubmissionMode @default(OFFLINE) @map("submission_mode")
+  allowLateSubmission Boolean                @default(true) @map("allow_late_submission")
+  maxMarks            Decimal?               @map("max_marks") @db.Decimal(6, 2) // null = not graded
+  status              HomeworkStatus         @default(DRAFT)
+  publishedAt         DateTime?              @map("published_at") @db.Timestamptz(6)
+  notifyParents       Boolean                @default(true) @map("notify_parents")
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?              @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus               @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear         @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  batch        Batch                @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  subject      Subject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  assignedBy   Staff                @relation(fields: [assignedById], references: [id], onDelete: Restrict)
+  attachments  HomeworkAttachment[]
+  submissions  HomeworkSubmission[]
+
+  @@index([organizationId, batchId, dueDate])
+  @@index([organizationId, campusId, status, dueDate])
+  @@index([organizationId, assignedById, status])
+  @@index([organizationId, batchId, subjectId, assignedDate])
+  @@map("homework")
+}
+
+// File or link attached to a homework by the teacher.
+model HomeworkAttachment {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  homeworkId     String   @map("homework_id") @db.Uuid
+  fileId         String?  @map("file_id") @db.Uuid // either a file ...
+  externalUrl    String?  @map("external_url") @db.VarChar(1000) // ... or a link (video, Google Drive)
+  title          String?  @db.VarChar(150)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  homework     Homework     @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  file         FileAsset?   @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, homeworkId, sortOrder])
+  @@map("homework_attachments")
+}
+
+// A student's work for a homework: status, files, marks and teacher feedback.
+model HomeworkSubmission {
+  id             String                   @id @default(uuid()) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  homeworkId     String                   @map("homework_id") @db.Uuid
+  studentId      String                   @map("student_id") @db.Uuid
+  status         HomeworkSubmissionStatus @default(PENDING)
+  answerText     String?                  @map("answer_text") @db.Text
+  submittedAt    DateTime?                @map("submitted_at") @db.Timestamptz(6)
+  submittedById  String?                  @map("submitted_by_id") @db.Uuid // User id of the student or parent (audit only, no FK)
+  attemptNo      Int                      @default(1) @map("attempt_no") @db.SmallInt // increases after RESUBMIT_REQUESTED
+  marksObtained  Decimal?                 @map("marks_obtained") @db.Decimal(6, 2)
+  grade          String?                  @db.VarChar(10)
+  feedback       String?                  @db.Text
+  gradedById     String?                  @map("graded_by_id") @db.Uuid // teacher (Staff)
+  gradedAt       DateTime?                @map("graded_at") @db.Timestamptz(6)
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  homework     Homework                 @relation(fields: [homeworkId], references: [id], onDelete: Restrict) // homework is soft-deleted; submissions and marks are never cascade-deleted
+  student      Student                  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  gradedBy     Staff?                   @relation(fields: [gradedById], references: [id], onDelete: SetNull)
+  files        HomeworkSubmissionFile[]
+
+  @@unique([organizationId, homeworkId, studentId])
+  @@index([organizationId, studentId, status])
+  @@index([organizationId, homeworkId, status])
+  @@map("homework_submissions")
+}
+
+// File uploaded by the student / parent as part of a homework submission.
+model HomeworkSubmissionFile {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  submissionId   String   @map("submission_id") @db.Uuid
+  fileId         String   @map("file_id") @db.Uuid
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  file         FileAsset          @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, submissionId])
+  @@map("homework_submission_files")
+}
+
+// One dated lecture of a batch (generated from the weekly timetable or created ad hoc): extra class, doubt session,
+// cancelled / rescheduled lecture, online class. Coaching attendance and per-lecture faculty pay attach to it.
+model ClassSession {
+  id                String             @id @default(uuid()) @db.Uuid
+  organizationId    String             @map("organization_id") @db.Uuid
+  campusId          String             @map("campus_id") @db.Uuid
+  academicYearId    String             @map("academic_year_id") @db.Uuid
+  batchId           String             @map("batch_id") @db.Uuid
+  subjectId         String?            @map("subject_id") @db.Uuid
+  staffId           String?            @map("staff_id") @db.Uuid // faculty who takes the lecture
+  roomId            String?            @map("room_id") @db.Uuid
+  timetableEntryId  String?            @map("timetable_entry_id") @db.Uuid // weekly cell this session was generated from
+  date              DateTime           @db.Date
+  startTime         String             @map("start_time") @db.VarChar(5) // HH:mm in the campus timezone
+  endTime           String             @map("end_time") @db.VarChar(5)
+  sessionType       ClassSessionType   @default(REGULAR) @map("session_type")
+  status            ClassSessionStatus @default(SCHEDULED)
+  topic             String?            @db.VarChar(255) // syllabus covered
+  meetingUrl        String?            @map("meeting_url") @db.VarChar(500) // online class link
+  cancelReason      String?            @map("cancel_reason") @db.VarChar(255)
+  rescheduledFromId String?            @map("rescheduled_from_id") @db.Uuid // the session this one replaces
+  parentsNotifiedAt DateTime?          @map("parents_notified_at") @db.Timestamptz(6) // cancel / reschedule alert queued
+  createdById       String?            @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?          @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  batch              Batch               @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  subject            Subject?            @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  staff              Staff?              @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  room               Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  timetableEntry     TimetableEntry?     @relation(fields: [timetableEntryId], references: [id], onDelete: SetNull)
+  rescheduledFrom    ClassSession?       @relation("ClassSessionReschedule", fields: [rescheduledFromId], references: [id], onDelete: SetNull)
+  rescheduledTo      ClassSession[]      @relation("ClassSessionReschedule")
+  attendanceSessions AttendanceSession[]
+
+  @@index([organizationId, batchId, date])
+  @@index([organizationId, staffId, date])
+  @@index([organizationId, campusId, date, status])
+  @@map("class_sessions")
+}
+
+// Learning resource (notes, DPP sheet, recorded-lecture link) shared with one or more batches; no due date or submission.
+model StudyMaterial {
+  id               String            @id @default(uuid()) @db.Uuid
+  organizationId   String            @map("organization_id") @db.Uuid
+  campusId         String            @map("campus_id") @db.Uuid
+  academicYearId   String            @map("academic_year_id") @db.Uuid
+  courseId         String?           @map("course_id") @db.Uuid
+  subjectId        String?           @map("subject_id") @db.Uuid
+  batchIds         String[]          @map("batch_ids") @db.Uuid // empty = every batch of the course
+  title            String            @db.VarChar(200)
+  description      String?           @db.Text
+  materialType     StudyMaterialType @default(NOTES) @map("material_type")
+  fileId           String?           @map("file_id") @db.Uuid // either a file ...
+  externalUrl      String?           @map("external_url") @db.VarChar(1000) // ... or a link
+  topic            String?           @db.VarChar(150)
+  isPublished      Boolean           @default(true) @map("is_published")
+  visibleToParents Boolean           @default(true) @map("visible_to_parents")
+  uploadedById     String?           @map("uploaded_by_id") @db.Uuid // Staff
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  course       Course?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  subject      Subject?     @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  file         FileAsset?   @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  uploadedBy   Staff?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, campusId, subjectId, createdAt])
+  @@index([organizationId, courseId, isPublished])
+  @@map("study_materials")
+}

@@ -1,0 +1,142 @@
+{
+  "key": "costguide",
+  "product": "EduFlow",
+  "title": "Founder Cost and Spending Guide",
+  "shortTitle": "Cost Guide",
+  "docType": "Founder Money Guide",
+  "tagline": "Enterprise Multi-Tenant School & Coaching ERP",
+  "coverNote": "When to spend, how much and on what — from Day 0 to Year 5. Minimum, recommended and maximum budgets, researched prices, free credits, and the money mistakes to avoid.",
+  "version": "1.0",
+  "date": "21 September 2026",
+  "owner": "Mehdi Alam (Founder)",
+  "preparedBy": "Mehdi Alam with Claude Code",
+  "status": "Baseline v1.0",
+  "markets": "India, then UAE, USA, Australia",
+  "output": "EduFlow_Founder_Cost_Guide.pdf",
+  "tocDepth": 2,
+  "info": [
+    [
+      "Product",
+      "EduFlow — multi-tenant SaaS ERP for schools and coaching institutes"
+    ],
+    [
+      "Document",
+      "Founder Cost and Spending Guide"
+    ],
+    [
+      "Version",
+      "1.0"
+    ],
+    [
+      "Date",
+      "21 September 2026"
+    ],
+    [
+      "Document owner",
+      "Mehdi Alam (Founder)"
+    ],
+    [
+      "Prepared by",
+      "Mehdi Alam with Claude Code (Anthropic) as AI finance, product and documentation assistant"
+    ],
+    [
+      "Price research",
+      "Public vendor price pages and government fee schedules, checked in September 2026"
+    ],
+    [
+      "Exchange rates (planning)",
+      "US$1 = Rs 85, A$1 = Rs 56, AED 1 = Rs 23"
+    ],
+    [
+      "Classification",
+      "Confidential — internal"
+    ]
+  ],
+  "revisions": [
+    {
+      "version": "1.0",
+      "date": "21 Sep 2026",
+      "author": "Mehdi Alam with Claude Code",
+      "changes": "Initial complete Cost Guide"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "Founder",
+      "name": "Mehdi Alam",
+      "responsibility": "Owns every spending decision",
+      "signoff": "Pending"
+    },
+    {
+      "role": "Chartered Accountant",
+      "name": "To be appointed",
+      "responsibility": "Confirms tax, GST, ROC and payroll figures",
+      "signoff": "Pending"
+    }
+  ],
+  "howToRead": [
+    "This guide answers one question: as a developer founder, how much money do I need, when, and for what — from today to Year 5.",
+    "Every cost has three levels. Minimum is the bare bootstrap (free tiers, founder does everything). Recommended is the plan used in the BRD financial model. Maximum is the upper end a sensible founder might spend; anything above it is waste.",
+    "Start with the money map in Chapter 1. Then read the stage you are in now. Prices were checked on public pages in September 2026 and are listed with sources in the Master Price List appendix. Prices change — check the vendor page before you pay."
+  ],
+  "companions": [
+    {
+      "name": "Business Requirements Document (BRD)",
+      "file": "EduFlow_BRD.pdf",
+      "answers": "The business plan and the financial model this guide follows"
+    },
+    {
+      "name": "Product Requirements Document (PRD)",
+      "file": "EduFlow_PRD.pdf",
+      "answers": "What to build"
+    },
+    {
+      "name": "Founder Blueprint",
+      "file": "EduFlow_Founder_Blueprint.pdf",
+      "answers": "How and when to build, sell and scale"
+    },
+    {
+      "name": "Founder Cost and Spending Guide",
+      "file": "EduFlow_Founder_Cost_Guide.pdf",
+      "answers": "How much it costs, when, and how to spend less"
+    }
+  ],
+  "notice": "Prices, taxes, government fees and salary ranges are taken from public sources in September 2026 and marked Verified or Estimate. They change often. Confirm tax, GST, company-law and payroll figures with a Chartered Accountant before acting. Budgets are plans and ranges, not guarantees.",
+  "parts": [
+    {
+      "title": "Part I — The Big Picture",
+      "startsAt": "01-",
+      "blurb": "How much the whole journey costs, stage by stage, on one page."
+    },
+    {
+      "title": "Part II — Year 1, Stage by Stage",
+      "startsAt": "02-",
+      "blurb": "Exactly what to pay for before Day 1, during the 60-day sprint, at pilot and launch, and when the first people join."
+    },
+    {
+      "title": "Part III — Cost Areas in Depth",
+      "startsAt": "06-",
+      "blurb": "Infrastructure, messaging and payments, people, sales and marketing, and legal and compliance — with researched prices."
+    },
+    {
+      "title": "Part IV — Years 2 to 5 and Going Global",
+      "startsAt": "11-",
+      "blurb": "Budgets for each later year and the real cost of entering the UAE, USA and Australia."
+    },
+    {
+      "title": "Part V — Spend Less, Stay Safe",
+      "startsAt": "13-",
+      "blurb": "Free credits and grants, the money mistakes to avoid, the founder's personal runway, and where the money comes from."
+    },
+    {
+      "title": "Part VI — Tools",
+      "startsAt": "17-",
+      "blurb": "Budget templates and the monthly tracking routine."
+    },
+    {
+      "title": "Appendices",
+      "startsAt": "90-",
+      "blurb": "Master price list with sources, and money terms in simple words."
+    }
+  ]
+}

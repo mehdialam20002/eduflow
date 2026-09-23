@@ -1,0 +1,147 @@
+[
+ {
+  "file": "01-the-money-map.md",
+  "title": "The Money Map: Day 0 to Year 5",
+  "words": 2400,
+  "research": []
+ },
+ {
+  "file": "02-before-day-1-one-time-setup.md",
+  "title": "Before Day 1: One-Time Setup Costs",
+  "words": 3000,
+  "research": [
+   "company-legal-tax",
+   "software-infra-ai"
+  ]
+ },
+ {
+  "file": "03-build-sprint-day-1-to-60.md",
+  "title": "The Build Sprint: Day 1 to Day 60",
+  "words": 2800,
+  "research": [
+   "software-infra-ai"
+  ]
+ },
+ {
+  "file": "04-pilot-and-launch-costs.md",
+  "title": "Pilot and Launch: Month 3 to Month 6",
+  "words": 3000,
+  "research": [
+   "messaging-payments",
+   "company-legal-tax",
+   "people-marketing-living"
+  ]
+ },
+ {
+  "file": "05-months-7-to-12-first-hires.md",
+  "title": "Months 7 to 12: First Hires and Growth",
+  "words": 2800,
+  "research": [
+   "people-marketing-living"
+  ]
+ },
+ {
+  "file": "06-infrastructure-and-software-by-scale.md",
+  "title": "Infrastructure and Software Costs by Scale",
+  "words": 3200,
+  "research": [
+   "software-infra-ai"
+  ]
+ },
+ {
+  "file": "07-messaging-and-payment-costs.md",
+  "title": "Messaging and Payment Costs",
+  "words": 2800,
+  "research": [
+   "messaging-payments"
+  ]
+ },
+ {
+  "file": "08-people-costs-and-salaries.md",
+  "title": "People Costs and Salary Benchmarks",
+  "words": 3200,
+  "research": [
+   "people-marketing-living"
+  ]
+ },
+ {
+  "file": "09-sales-and-marketing-costs.md",
+  "title": "Sales and Marketing Costs",
+  "words": 3000,
+  "research": [
+   "people-marketing-living"
+  ]
+ },
+ {
+  "file": "10-legal-compliance-tax-and-accounting.md",
+  "title": "Legal, Compliance, Tax and Accounting Costs",
+  "words": 3000,
+  "research": [
+   "company-legal-tax"
+  ]
+ },
+ {
+  "file": "11-year-2-to-year-5-budgets.md",
+  "title": "Year 2 to Year 5: Budgets by Year",
+  "words": 3200,
+  "research": []
+ },
+ {
+  "file": "12-international-expansion-costs.md",
+  "title": "International Expansion Costs",
+  "words": 2800,
+  "research": [
+   "international-and-programs"
+  ]
+ },
+ {
+  "file": "13-free-credits-grants-and-startup-programs.md",
+  "title": "Free Credits, Grants and Startup Programs",
+  "words": 2600,
+  "research": [
+   "international-and-programs"
+  ]
+ },
+ {
+  "file": "14-money-mistakes-to-avoid.md",
+  "title": "What to Avoid: The Money Mistakes That Hurt Most",
+  "words": 2600,
+  "research": []
+ },
+ {
+  "file": "15-founder-personal-finance-and-runway.md",
+  "title": "Founder Personal Finance and Runway",
+  "words": 2400,
+  "research": [
+   "people-marketing-living"
+  ]
+ },
+ {
+  "file": "16-funding-plan-and-cash-management.md",
+  "title": "Funding Plan and Cash Management",
+  "words": 2600,
+  "research": [
+   "company-legal-tax"
+  ]
+ },
+ {
+  "file": "17-budget-templates-and-tracking.md",
+  "title": "Budget Templates and Monthly Tracking",
+  "words": 1800,
+  "research": []
+ },
+ {
+  "file": "90-appendix-master-price-list.md",
+  "title": "Master Price List",
+  "words": 2500,
+  "research": [
+   "all"
+  ]
+ },
+ {
+  "file": "91-appendix-money-terms.md",
+  "title": "Money Terms in Simple Words",
+  "words": 1200,
+  "research": []
+ }
+]

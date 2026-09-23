@@ -1,0 +1,626 @@
+// 10-communication: notification templates, in-app notifications and preferences, announcements,
+// the outbound message log, WhatsApp / email / SMS sender setup, message credits and push tokens.
+
+enum NotificationCategory {
+  ATTENDANCE
+  FEES
+  EXAMS
+  HOMEWORK
+  ANNOUNCEMENTS
+  ADMISSIONS
+  LEAVE
+  TIMETABLE
+  TRANSPORT
+  LIBRARY
+  HOSTEL
+  PAYROLL
+  ACCOUNT // login, OTP, password, security alerts
+  SYSTEM
+}
+
+// Approval state of a template at the provider (Meta for WhatsApp, DLT for SMS).
+enum TemplateApprovalStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+  NOT_REQUIRED // in-app, push and email templates
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+  FAILED
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum MessageProvider {
+  META_WHATSAPP
+  MSG91
+  TWILIO
+  AMAZON_SES
+  FCM
+  INTERNAL // in-app only
+}
+
+enum MessageRecipientType {
+  USER
+  GUARDIAN
+  STUDENT
+  STAFF
+  LEAD // admission inquiry contact
+  OTHER
+}
+
+enum WhatsAppTemplateCategory {
+  UTILITY
+  MARKETING
+  AUTHENTICATION
+}
+
+enum WhatsAppQualityRating {
+  GREEN
+  YELLOW
+  RED
+  UNKNOWN
+}
+
+enum WhatsAppMessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  AUDIO
+  VIDEO
+  LOCATION
+  BUTTON_REPLY
+  INTERACTIVE
+  OTHER
+}
+
+enum SenderVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum EmailSuppressionReason {
+  HARD_BOUNCE
+  SOFT_BOUNCE_LIMIT
+  COMPLAINT
+  UNSUBSCRIBED
+  MANUAL
+}
+
+enum CreditUnit {
+  MESSAGES // SMS packs: one credit = one SMS segment
+  MONEY // WhatsApp: prepaid money balance, charged per message at Meta cost + margin
+}
+
+enum CreditTransactionType {
+  PURCHASE
+  CONSUME
+  REFUND // failed message credited back
+  ADJUSTMENT
+  EXPIRY
+  BONUS
+  RESERVE // hold for a queued bulk campaign; moves balance into reserved
+  RELEASE // unused part of a reservation returned
+}
+
+// TRAI DLT content template category (India).
+enum DltTemplateCategory {
+  TRANSACTIONAL
+  SERVICE_IMPLICIT
+  SERVICE_EXPLICIT
+  PROMOTIONAL
+}
+
+// Message template per event, channel and language. organizationId null = EduFlow default used until a tenant overrides it.
+model NotificationTemplate {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  organizationId     String?                @map("organization_id") @db.Uuid // null ONLY for system default templates
+  eventKey           String                 @map("event_key") @db.VarChar(80) // e.g. attendance.absent, fees.receipt, fees.reminder.overdue
+  channel            Channel
+  language           String                 @default("en") @db.VarChar(10)
+  category           NotificationCategory
+  name               String                 @db.VarChar(120)
+  subject            String?                @db.VarChar(200) // email subject / push title
+  body               String                 @db.Text // text with {{variables}}, e.g. "{{studentName}} was absent on {{date}}"
+  variables          String[] // allowed variable names, in order for WhatsApp / DLT positional placeholders
+  whatsAppTemplateId String?                @map("whats_app_template_id") @db.Uuid // approved Meta template used for the WHATSAPP channel
+  smsDltTemplateId   String?                @map("sms_dlt_template_id") @db.Uuid // registered TRAI DLT content template for the SMS channel (India); language-specific
+  smsSenderIdId      String?                @map("sms_sender_id_id") @db.Uuid // SMS header to send with
+  approvalStatus     TemplateApprovalStatus @default(NOT_REQUIRED) @map("approval_status")
+  isSystem           Boolean                @default(false) @map("is_system")
+  status             RecordStatus           @default(ACTIVE)
+  updatedById        String?                @map("updated_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?              @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  whatsAppTemplate WhatsAppTemplate? @relation(fields: [whatsAppTemplateId], references: [id], onDelete: SetNull)
+  smsSenderId      SmsSenderId?      @relation(fields: [smsSenderIdId], references: [id], onDelete: SetNull)
+  smsDltTemplate   SmsDltTemplate?   @relation(fields: [smsDltTemplateId], references: [id], onDelete: SetNull)
+  messageLogs      MessageLog[]
+
+  // System defaults (organization_id IS NULL) are kept unique by a partial unique index in the SQL migration.
+  @@unique([organizationId, eventKey, channel, language])
+  @@index([organizationId, category, status])
+  @@index([eventKey, channel, language])
+  @@map("notification_templates")
+}
+
+// In-app notification shown in the bell menu of one user.
+model Notification {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  category       NotificationCategory
+  eventKey       String?              @map("event_key") @db.VarChar(80)
+  title          String               @db.VarChar(200)
+  body           String               @db.VarChar(1000)
+  deepLink       String?              @map("deep_link") @db.VarChar(500) // app route, e.g. /fees/invoices/{id}
+  entityType     String?              @map("entity_type") @db.VarChar(60)
+  entityId       String?              @map("entity_id") @db.Uuid
+  data           Json? // extra payload for the client
+  readAt         DateTime?            @map("read_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, readAt, createdAt]) // unread list and badge count
+  @@index([organizationId, userId, createdAt])
+  @@index([createdAt]) // retention cleanup
+  @@map("notifications")
+}
+
+// A user's opt-in / opt-out per channel and category.
+model NotificationPreference {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  channel        Channel
+  category       NotificationCategory
+  isEnabled      Boolean              @default(true) @map("is_enabled")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, channel, category])
+  @@index([organizationId, channel, category, isEnabled]) // fan-out: who opted out of a channel for a category
+  @@map("notification_preferences")
+}
+
+// Notice / circular sent to a filtered audience over one or more channels, now or scheduled.
+model Announcement {
+  id                String             @id @default(uuid()) @db.Uuid
+  organizationId    String             @map("organization_id") @db.Uuid
+  campusId          String?            @map("campus_id") @db.Uuid // null = all campuses
+  title             String             @db.VarChar(200)
+  body              String             @db.Text
+  audience          Audience           @default(ALL)
+  audienceFilter    Json?              @map("audience_filter") // { courseIds, batchIds, roleKeys, studentIds, feeDefaultersOnly }
+  channels          Channel[] // IN_APP is always implied
+  attachmentFileIds String[]           @map("attachment_file_ids") @db.Uuid // FileAsset ids
+  status            AnnouncementStatus @default(DRAFT)
+  isPinned          Boolean            @default(false) @map("is_pinned")
+  requiresAck       Boolean            @default(false) @map("requires_ack") // parents must tap "I have read this"
+  scheduledAt       DateTime?          @map("scheduled_at") @db.Timestamptz(6)
+  sentAt            DateTime?          @map("sent_at") @db.Timestamptz(6)
+  expiresAt         DateTime?          @map("expires_at") @db.Timestamptz(6) // hidden from the portals after this time
+  recipientCount    Int                @default(0) @map("recipient_count")
+  readCount         Int                @default(0) @map("read_count")
+  authorId          String?            @map("author_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?          @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus?                 @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  author       User?                   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  recipients   AnnouncementRecipient[]
+  messageLogs  MessageLog[]
+
+  @@index([organizationId, campusId, status, createdAt])
+  @@index([organizationId, status, scheduledAt]) // scheduler
+  @@map("announcements")
+}
+
+// One resolved recipient of an announcement with read / acknowledgement tracking.
+model AnnouncementRecipient {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  announcementId String               @map("announcement_id") @db.Uuid
+  recipientType  MessageRecipientType @map("recipient_type")
+  recipientId    String               @map("recipient_id") @db.Uuid // id of the Guardian / Student / Staff / User row
+  userId         String?              @map("user_id") @db.Uuid // login of the recipient when one exists (portal inbox)
+  studentId      String?              @map("student_id") @db.Uuid // the child the notice is about, for parents
+  readAt         DateTime?            @map("read_at") @db.Timestamptz(6)
+  acknowledgedAt DateTime?            @map("acknowledged_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student      Student?     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, announcementId, recipientType, recipientId])
+  @@index([organizationId, userId, readAt])
+  @@map("announcement_recipients")
+}
+
+// Every WhatsApp, SMS, email and push message sent, with delivery status and cost. High volume; never soft-deleted.
+// cost / currency = amount debited from the tenant wallet; providerCost + marginAmount explain it (WhatsApp: Meta cost + 15 % margin).
+model MessageLog {
+  id                   String               @id @default(uuid()) @db.Uuid
+  organizationId       String               @map("organization_id") @db.Uuid
+  campusId             String?              @map("campus_id") @db.Uuid
+  channel              Channel
+  provider             MessageProvider
+  toAddress            String               @map("to_address") @db.VarChar(255) // phone (E.164), email or device token id
+  recipientType        MessageRecipientType @map("recipient_type")
+  recipientId          String?              @map("recipient_id") @db.Uuid // id of the Guardian / Student / Staff / User / inquiry row
+  studentId            String?              @map("student_id") @db.Uuid // student the message is about (communication timeline)
+  templateId           String?              @map("template_id") @db.Uuid
+  whatsAppTemplateId   String?              @map("whats_app_template_id") @db.Uuid
+  whatsAppAccountId    String?              @map("whats_app_account_id") @db.Uuid // sending number
+  smsSenderIdId        String?              @map("sms_sender_id_id") @db.Uuid // SMS header used
+  dltTemplateId        String?              @map("dlt_template_id") @db.VarChar(30) // snapshot of the DLT content template id actually sent
+  dltEntityId          String?              @map("dlt_entity_id") @db.VarChar(30) // snapshot of the DLT principal entity id
+  recipientCountryCode String?              @map("recipient_country_code") @db.Char(2) // per-country WhatsApp / SMS rates
+  pricingCategory      String?              @map("pricing_category") @db.VarChar(20) // MARKETING | UTILITY | AUTHENTICATION | SERVICE
+  isBillable           Boolean              @default(true) @map("is_billable") // false for free-window / service conversations
+  announcementId       String?              @map("announcement_id") @db.Uuid
+  eventKey             String?              @map("event_key") @db.VarChar(80)
+  subject              String?              @db.VarChar(200)
+  body                 String?              @db.Text // rendered text (OTP values are masked)
+  variables            Json? // values used to render the template
+  status               MessageStatus        @default(QUEUED)
+  providerMessageId    String?              @map("provider_message_id") @db.VarChar(150)
+  segments             Int                  @default(1) @db.SmallInt // SMS parts
+  cost                 Decimal              @default(0) @db.Decimal(12, 4) // amount charged to the tenant wallet; 4 decimals: per-message prices are fractions of a rupee
+  currency             String?              @db.Char(3) // wallet currency
+  providerCost         Decimal              @default(0) @map("provider_cost") @db.Decimal(12, 4) // what Meta / MSG91 / Twilio charges EduFlow
+  providerCurrency     String?              @map("provider_currency") @db.Char(3)
+  exchangeRate         Decimal?             @map("exchange_rate") @db.Decimal(18, 8) // providerCurrency -> currency at send time (ExchangeRate)
+  marginAmount         Decimal              @default(0) @map("margin_amount") @db.Decimal(12, 4) // in the wallet currency
+  errorCode            String?              @map("error_code") @db.VarChar(60)
+  error                String?              @db.VarChar(500)
+  retryCount           Int                  @default(0) @map("retry_count") @db.SmallInt
+  queuedAt             DateTime             @default(now()) @map("queued_at") @db.Timestamptz(6)
+  sentAt               DateTime?            @map("sent_at") @db.Timestamptz(6)
+  deliveredAt          DateTime?            @map("delivered_at") @db.Timestamptz(6)
+  readAt               DateTime?            @map("read_at") @db.Timestamptz(6)
+  failedAt             DateTime?            @map("failed_at") @db.Timestamptz(6)
+  triggeredById        String?              @map("triggered_by_id") @db.Uuid // User id (audit only, no FK); null for automatic messages
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus             Campus?                  @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  student            Student?                 @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  template           NotificationTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  whatsAppTemplate   WhatsAppTemplate?        @relation(fields: [whatsAppTemplateId], references: [id], onDelete: SetNull)
+  whatsAppAccount    WhatsAppAccount?         @relation(fields: [whatsAppAccountId], references: [id], onDelete: SetNull)
+  smsSenderId        SmsSenderId?             @relation(fields: [smsSenderIdId], references: [id], onDelete: SetNull)
+  announcement       Announcement?            @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+  creditTransactions CreditTransaction[]
+  inboundReplies     WhatsAppInboundMessage[]
+  emailSuppressions  EmailSuppression[]
+  feeReminderLogs    FeeReminderLog[]
+
+  @@unique([provider, providerMessageId]) // delivery webhooks find the row by this key
+  @@index([organizationId, channel, status, createdAt])
+  @@index([organizationId, channel, pricingCategory, createdAt]) // cost and margin reports, Meta bill reconciliation
+  @@index([organizationId, campusId, createdAt])
+  @@index([organizationId, recipientType, recipientId, createdAt])
+  @@index([organizationId, studentId, createdAt])
+  @@index([organizationId, announcementId])
+  @@index([organizationId, toAddress, createdAt])
+  @@map("message_logs")
+}
+
+// A tenant's WhatsApp Business Account number connected through the Meta Cloud API.
+// phoneNumberId routes inbound webhooks, so it is unique among LIVE rows only (a disconnected number can be reconnected):
+//   partial unique index in the SQL migration, uq_whatsapp_phone_number_live (phone_number_id) WHERE deleted_at IS NULL
+// One default account per organization: partial unique index WHERE is_default AND deleted_at IS NULL.
+model WhatsAppAccount {
+  id                 String                @id @default(uuid()) @db.Uuid
+  organizationId     String                @map("organization_id") @db.Uuid
+  campusId           String?               @map("campus_id") @db.Uuid // null = shared by all campuses
+  wabaId             String                @map("waba_id") @db.VarChar(40) // WhatsApp Business Account id
+  phoneNumberId      String                @map("phone_number_id") @db.VarChar(40) // Meta phone number id; routes inbound webhooks to the tenant
+  displayPhoneNumber String                @map("display_phone_number") @db.VarChar(20)
+  verifiedName       String?               @map("verified_name") @db.VarChar(150)
+  accessTokenRef     String                @map("access_token_ref") @db.VarChar(255) // reference to the encrypted system-user token in the secrets store
+  qualityRating      WhatsAppQualityRating @default(UNKNOWN) @map("quality_rating")
+  messagingLimitTier String?               @map("messaging_limit_tier") @db.VarChar(20) // TIER_1K, TIER_10K ...
+  isDefault          Boolean               @default(false) @map("is_default")
+  status             RecordStatus          @default(ACTIVE)
+  connectedAt        DateTime?             @map("connected_at") @db.Timestamptz(6)
+  lastSyncedAt       DateTime?             @map("last_synced_at") @db.Timestamptz(6)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?             @map("deleted_at") @db.Timestamptz(6)
+
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus          Campus?                  @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  templates       WhatsAppTemplate[]
+  inboundMessages WhatsAppInboundMessage[]
+  messageLogs     MessageLog[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, campusId])
+  @@index([phoneNumberId]) // webhook routing
+  @@map("whats_app_accounts")
+}
+
+// WhatsApp message template registered with Meta (name + language), synced with its approval status.
+model WhatsAppTemplate {
+  id                String                   @id @default(uuid()) @db.Uuid
+  organizationId    String                   @map("organization_id") @db.Uuid
+  whatsAppAccountId String                   @map("whats_app_account_id") @db.Uuid
+  name              String                   @db.VarChar(120) // lower_snake_case name at Meta
+  category          WhatsAppTemplateCategory
+  language          String                   @db.VarChar(10) // en, hi, en_US
+  status            TemplateApprovalStatus   @default(DRAFT)
+  metaTemplateId    String?                  @map("meta_template_id") @db.VarChar(60)
+  components        Json // header, body, footer and buttons as sent to Meta
+  bodyText          String                   @map("body_text") @db.Text
+  variableCount     Int                      @default(0) @map("variable_count") @db.SmallInt
+  rejectionReason   String?                  @map("rejection_reason") @db.VarChar(500)
+  submittedAt       DateTime?                @map("submitted_at") @db.Timestamptz(6)
+  lastSyncedAt      DateTime?                @map("last_synced_at") @db.Timestamptz(6)
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?                @map("deleted_at") @db.Timestamptz(6)
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  whatsAppAccount       WhatsAppAccount        @relation(fields: [whatsAppAccountId], references: [id], onDelete: Cascade)
+  notificationTemplates NotificationTemplate[]
+  messageLogs           MessageLog[]
+
+  @@unique([organizationId, whatsAppAccountId, name, language])
+  @@index([organizationId, status, category])
+  @@map("whats_app_templates")
+}
+
+// Message received from a parent on the institute's WhatsApp number (opens the 24-hour reply window).
+model WhatsAppInboundMessage {
+  id                  String              @id @default(uuid()) @db.Uuid
+  organizationId      String              @map("organization_id") @db.Uuid
+  whatsAppAccountId   String              @map("whats_app_account_id") @db.Uuid
+  waMessageId         String              @map("wa_message_id") @db.VarChar(150) // Meta message id (wamid...)
+  fromPhone           String              @map("from_phone") @db.VarChar(20) // E.164
+  profileName         String?             @map("profile_name") @db.VarChar(150)
+  messageType         WhatsAppMessageType @default(TEXT) @map("message_type")
+  text                String?             @db.Text
+  mediaFileId         String?             @map("media_file_id") @db.Uuid // media downloaded into S3
+  payload             Json // raw message object from the webhook
+  replyToMessageLogId String?             @map("reply_to_message_log_id") @db.Uuid // outbound message this one replies to
+  guardianId          String?             @map("guardian_id") @db.Uuid // matched by phone number
+  receivedAt          DateTime            @map("received_at") @db.Timestamptz(6)
+  readAt              DateTime?           @map("read_at") @db.Timestamptz(6) // opened by staff in the inbox
+  handledById         String?             @map("handled_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  whatsAppAccount   WhatsAppAccount @relation(fields: [whatsAppAccountId], references: [id], onDelete: Cascade)
+  mediaFile         FileAsset?      @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
+  replyToMessageLog MessageLog?     @relation(fields: [replyToMessageLogId], references: [id], onDelete: SetNull)
+  guardian          Guardian?       @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, waMessageId])
+  @@index([organizationId, whatsAppAccountId, receivedAt])
+  @@index([organizationId, fromPhone, receivedAt])
+  @@index([organizationId, readAt])
+  @@map("whats_app_inbound_messages")
+}
+
+// "From" address of a tenant verified in Amazon SES (domain with DKIM).
+model EmailSenderIdentity {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  organizationId     String                   @map("organization_id") @db.Uuid
+  fromName           String                   @map("from_name") @db.VarChar(120)
+  fromEmail          String                   @map("from_email") @db.VarChar(255)
+  replyToEmail       String?                  @map("reply_to_email") @db.VarChar(255)
+  domain             String                   @db.VarChar(255)
+  dkimVerified       Boolean                  @default(false) @map("dkim_verified")
+  dkimRecords        Json?                    @map("dkim_records") // CNAME records the tenant must add to DNS
+  spfVerified        Boolean                  @default(false) @map("spf_verified")
+  verificationStatus SenderVerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?                @map("verified_at") @db.Timestamptz(6)
+  lastCheckedAt      DateTime?                @map("last_checked_at") @db.Timestamptz(6)
+  isDefault          Boolean                  @default(false) @map("is_default")
+  status             RecordStatus             @default(ACTIVE)
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?                @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, fromEmail])
+  @@index([organizationId, status])
+  @@index([domain])
+  @@map("email_sender_identities")
+}
+
+// Email address that must not be mailed again (hard bounce, spam complaint, unsubscribe).
+model EmailSuppression {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  email          String                 @db.VarChar(255) // lower-case
+  reason         EmailSuppressionReason
+  detail         String?                @db.VarChar(500) // bounce sub-type or diagnostic code from SES
+  messageLogId   String?                @map("message_log_id") @db.Uuid // message that caused the suppression
+  suppressedAt   DateTime               @default(now()) @map("suppressed_at") @db.Timestamptz(6)
+  expiresAt      DateTime?              @map("expires_at") @db.Timestamptz(6) // soft-bounce blocks expire; hard bounces do not
+  removedAt      DateTime?              @map("removed_at") @db.Timestamptz(6) // manually cleared by an admin
+  removedById    String?                @map("removed_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messageLog   MessageLog?  @relation(fields: [messageLogId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])
+  @@index([organizationId, reason])
+  @@map("email_suppressions")
+}
+
+// SMS header (sender id) with the TRAI DLT registration needed in India; Twilio numbers for other countries.
+model SmsSenderId {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  organizationId     String                   @map("organization_id") @db.Uuid
+  provider           MessageProvider          @default(MSG91)
+  header             String                   @db.VarChar(20) // 6-character DLT header, e.g. BFPSCH, or a phone number for Twilio
+  countryCode        String                   @default("IN") @map("country_code") @db.Char(2)
+  dltEntityId        String?                  @map("dlt_entity_id") @db.VarChar(30) // principal entity id on the DLT portal
+  dltTelemarketerId  String?                  @map("dlt_telemarketer_id") @db.VarChar(30) // telemarketer id of the PE-TM chain (MSG91)
+  verificationStatus SenderVerificationStatus @default(PENDING) @map("verification_status")
+  isDefault          Boolean                  @default(false) @map("is_default")
+  status             RecordStatus             @default(ACTIVE)
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?                @map("deleted_at") @db.Timestamptz(6)
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notificationTemplates NotificationTemplate[]
+  dltTemplates          SmsDltTemplate[]
+  messageLogs           MessageLog[]
+
+  @@unique([organizationId, header])
+  @@index([organizationId, status])
+  @@map("sms_sender_ids")
+}
+
+// DLT content template registered on the TRAI DLT portal under one header: exact text, category, language and approval.
+model SmsDltTemplate {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  smsSenderIdId  String                 @map("sms_sender_id_id") @db.Uuid
+  dltTemplateId  String                 @map("dlt_template_id") @db.VarChar(30) // id issued by the DLT portal
+  name           String                 @db.VarChar(120)
+  category       DltTemplateCategory
+  language       String                 @default("en") @db.VarChar(10)
+  isUnicode      Boolean                @default(false) @map("is_unicode") // Hindi and other non-Latin scripts
+  bodyText       String                 @map("body_text") @db.Text // registered text with {#var#} placeholders; messages are validated against it before sending
+  variableCount  Int                    @default(0) @map("variable_count") @db.SmallInt
+  approvalStatus TemplateApprovalStatus @default(PENDING) @map("approval_status")
+  approvedAt     DateTime?              @map("approved_at") @db.Timestamptz(6)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?              @map("deleted_at") @db.Timestamptz(6)
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  smsSenderId           SmsSenderId            @relation(fields: [smsSenderIdId], references: [id], onDelete: Cascade)
+  notificationTemplates NotificationTemplate[]
+
+  @@unique([organizationId, dltTemplateId])
+  @@index([organizationId, smsSenderIdId, approvalStatus])
+  @@map("sms_dlt_templates")
+}
+
+// Prepaid balance of a tenant for one paid channel (WhatsApp or SMS). available = balance - reserved.
+// SQL migration adds: CHECK (balance >= 0 AND reserved >= 0) so concurrent campaigns cannot overdraw the wallet.
+model MessageCreditWallet {
+  id                   String     @id @default(uuid()) @db.Uuid
+  organizationId       String     @map("organization_id") @db.Uuid
+  channel              Channel // WHATSAPP or SMS
+  unit                 CreditUnit
+  balance              Decimal    @default(0) @db.Decimal(12, 4) // messages or money, by unit; updated in the same transaction as CreditTransaction
+  currency             String?    @db.Char(3) // set when unit is MONEY
+  totalPurchased       Decimal    @default(0) @map("total_purchased") @db.Decimal(12, 4)
+  reserved             Decimal    @default(0) @db.Decimal(12, 4) // held for queued campaigns (RESERVE / RELEASE rows)
+  totalConsumed        Decimal    @default(0) @map("total_consumed") @db.Decimal(12, 4)
+  totalRefunded        Decimal    @default(0) @map("total_refunded") @db.Decimal(12, 4)
+  lowBalanceThreshold  Decimal?   @map("low_balance_threshold") @db.Decimal(12, 4)
+  lowBalanceNotifiedAt DateTime?  @map("low_balance_notified_at") @db.Timestamptz(6)
+  createdAt            DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  transactions CreditTransaction[]
+
+  @@unique([organizationId, channel])
+  @@index([organizationId, unit])
+  @@map("message_credit_wallets")
+}
+
+// Ledger row of a credit wallet. Append-only: no updatedAt / deletedAt.
+// Duplicates are impossible by design: one CONSUME and one REFUND per MessageLog, one PURCHASE per AddOnPurchase
+// (a BullMQ retry or a replayed payment webhook hits the unique keys). A manual resend creates a new MessageLog.
+model CreditTransaction {
+  id              String                @id @default(uuid()) @db.Uuid
+  organizationId  String                @map("organization_id") @db.Uuid
+  walletId        String                @map("wallet_id") @db.Uuid
+  transactionType CreditTransactionType @map("transaction_type")
+  unit            CreditUnit // snapshot of the wallet unit
+  currency        String?               @db.Char(3) // snapshot when unit is MONEY
+  amount          Decimal               @db.Decimal(12, 4) // positive = credit to the wallet, negative = debit
+  balanceAfter    Decimal               @map("balance_after") @db.Decimal(12, 4)
+  idempotencyKey  String?               @map("idempotency_key") @db.VarChar(100) // job id / request key for rows without a messageLogId
+  messageLogId    String?               @map("message_log_id") @db.Uuid // CONSUME / REFUND rows
+  announcementId  String?               @map("announcement_id") @db.Uuid // RESERVE / RELEASE rows of a bulk campaign (no FK)
+  addOnPurchaseId String?               @map("add_on_purchase_id") @db.Uuid // PURCHASE rows: the credit pack that was bought
+  description     String?               @db.VarChar(255)
+  createdById     String?               @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  wallet        MessageCreditWallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  messageLog    MessageLog?         @relation(fields: [messageLogId], references: [id], onDelete: SetNull)
+  addOnPurchase AddOnPurchase?      @relation(fields: [addOnPurchaseId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, messageLogId, transactionType]) // NULL ids never clash: ADJUSTMENT, BONUS, EXPIRY rows are not affected
+  @@unique([organizationId, addOnPurchaseId, transactionType])
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, walletId, createdAt])
+  @@index([organizationId, transactionType, createdAt])
+  @@index([organizationId, announcementId])
+  @@map("credit_transactions")
+}
+
+// Push notification token (FCM / APNs) of a user's device.
+model DeviceToken {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  platform       DevicePlatform
+  token          String         @db.VarChar(512) // not globally unique: one phone may hold User rows of two organizations
+  deviceId       String?        @map("device_id") @db.VarChar(100)
+  deviceName     String?        @map("device_name") @db.VarChar(150)
+  appVersion     String?        @map("app_version") @db.VarChar(20)
+  locale         String?        @db.VarChar(10)
+  isActive       Boolean        @default(true) @map("is_active") // set false when the provider reports the token as invalid
+  lastSeenAt     DateTime?      @map("last_seen_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([organizationId, userId, isActive])
+  @@index([token]) // deactivate every row of a token that FCM reports as invalid
+  @@map("device_tokens")
+}

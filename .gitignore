@@ -1,0 +1,20 @@
+# Build tooling dependencies
+docs/build/node_modules/
+
+# Build output: HTML, intermediate PDFs, rendered page images
+docs/out/
+
+# Final PDFs are large binaries. They are built from docs/src with:
+#   node docs/build/build.mjs all
+# Share them as GitHub Release assets instead of committing them.
+*.pdf
+
+# Local and editor files
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+
+# Claude Code session state
+.claude/

@@ -1,0 +1,174 @@
+// EduFlow — multi-file Prisma schema (Prisma ORM 6.x, PostgreSQL 16+)
+// 00-base: generator, datasource and the enums shared by more than one domain.
+// Domain-specific enums live in their own domain file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Kind of institution; drives UI labels (Class/Section vs Program/Batch).
+enum OrganizationType {
+  SCHOOL
+  COACHING
+  COLLEGE
+  TRAINING_CENTRE
+}
+
+// Generic lifecycle for master data (courses, subjects, rooms, leave types ...).
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNDISCLOSED
+}
+
+enum BloodGroup {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+  UNKNOWN
+}
+
+// Delivery channel for notifications, OTPs and parent communication.
+enum Channel {
+  IN_APP
+  WHATSAPP
+  SMS
+  EMAIL
+  PUSH
+}
+
+enum WeekDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// Generic approval outcome (leave, student leave, discounts, refunds ...).
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// Lifecycle of a background job processed by BullMQ workers (imports, exports, PDFs).
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+  CANCELLED
+}
+
+// The 34 product modules (canon codes); used for plan gating and permissions.
+enum ModuleCode {
+  DASH
+  ORG
+  CAMP
+  ADM
+  STU
+  TCH
+  STF
+  ATT
+  LEV
+  BAT
+  TT
+  SUB
+  HW
+  EXM
+  RPT
+  FEE
+  PAY
+  DSC
+  SCH
+  PP
+  SP
+  NTF
+  WA
+  EML
+  SMS
+  LIB
+  INV
+  TRN
+  HST
+  PRL
+  CRT
+  ANL
+  AI
+  SET
+}
+
+// Payment gateway used for SaaS billing and for online fee collection.
+enum PaymentGateway {
+  RAZORPAY
+  STRIPE
+  OFFLINE
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+// Client platform of a session, device or push token.
+enum DevicePlatform {
+  WEB
+  ANDROID
+  IOS
+  API
+}
+
+// Who a calendar item, holiday or announcement applies to.
+enum Audience {
+  ALL
+  STAFF
+  STUDENTS
+  PARENTS
+  STUDENTS_AND_PARENTS
+}
+
+// Part of the day a batch or period slot belongs to.
+enum Shift {
+  MORNING
+  AFTERNOON
+  EVENING
+  FULL_DAY
+  WEEKEND
+}
+
+// Which half of a day a half-day leave or attendance refers to.
+enum HalfDaySession {
+  FIRST_HALF
+  SECOND_HALF
+}
+
+// Output format of generated files (exports, reports).
+enum FileFormat {
+  XLSX
+  CSV
+  PDF
+  JSON
+  ZIP
+}

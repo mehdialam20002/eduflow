@@ -1,0 +1,152 @@
+[
+ {
+  "file": "01-executive-summary.md",
+  "title": "Executive Summary",
+  "words": 2200,
+  "research": false
+ },
+ {
+  "file": "02-problem-statement-and-proposed-solution.md",
+  "title": "Problem Statement and Proposed Solution",
+  "words": 3000,
+  "research": false
+ },
+ {
+  "file": "03-business-objectives-scope-and-stakeholders.md",
+  "title": "Business Objectives, Scope and Stakeholders",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "04-market-research-india.md",
+  "title": "Market Research: India",
+  "words": 3500,
+  "research": true
+ },
+ {
+  "file": "05-market-research-usa-australia-uae.md",
+  "title": "Market Research: USA, Australia and UAE",
+  "words": 3500,
+  "research": true
+ },
+ {
+  "file": "06-market-sizing-tam-sam-som.md",
+  "title": "Market Sizing: TAM, SAM and SOM",
+  "words": 2600,
+  "research": true
+ },
+ {
+  "file": "07-competitor-analysis.md",
+  "title": "Competitor Analysis",
+  "words": 4000,
+  "research": true
+ },
+ {
+  "file": "08-feature-comparison-matrix.md",
+  "title": "Feature Comparison Matrix",
+  "words": 2200,
+  "research": true
+ },
+ {
+  "file": "09-customer-personas.md",
+  "title": "Customer Personas",
+  "words": 4200,
+  "research": false
+ },
+ {
+  "file": "10-customer-segments-and-ideal-customer-profile.md",
+  "title": "Customer Segments and Ideal Customer Profile",
+  "words": 2800,
+  "research": false
+ },
+ {
+  "file": "11-business-model.md",
+  "title": "Business Model",
+  "words": 3200,
+  "research": false
+ },
+ {
+  "file": "12-pricing-strategy.md",
+  "title": "Pricing Strategy",
+  "words": 3200,
+  "research": false
+ },
+ {
+  "file": "13-go-to-market-strategy.md",
+  "title": "Go-To-Market Strategy",
+  "words": 3800,
+  "research": false
+ },
+ {
+  "file": "14-sales-process-and-playbooks.md",
+  "title": "Sales Process and Playbooks",
+  "words": 3600,
+  "research": false
+ },
+ {
+  "file": "15-customer-success-onboarding-and-support.md",
+  "title": "Customer Success, Onboarding and Support",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "16-business-requirements-catalog.md",
+  "title": "Business Requirements Catalog",
+  "words": 4500,
+  "research": false
+ },
+ {
+  "file": "17-compliance-legal-and-data-protection-requirements.md",
+  "title": "Compliance, Legal and Data Protection Requirements",
+  "words": 3000,
+  "research": true
+ },
+ {
+  "file": "18-kpi-framework-and-dashboard.md",
+  "title": "KPI Framework and Dashboard",
+  "words": 3200,
+  "research": false
+ },
+ {
+  "file": "19-five-year-roadmap.md",
+  "title": "Five-Year Roadmap",
+  "words": 3600,
+  "research": false
+ },
+ {
+  "file": "20-organization-and-hiring-plan.md",
+  "title": "Organization and Hiring Plan",
+  "words": 2800,
+  "research": false
+ },
+ {
+  "file": "21-financial-plan-and-projections.md",
+  "title": "Financial Plan and Projections",
+  "words": 4200,
+  "research": false
+ },
+ {
+  "file": "22-risk-analysis-and-mitigation.md",
+  "title": "Risk Analysis and Mitigation",
+  "words": 3200,
+  "research": false
+ },
+ {
+  "file": "23-swot-and-strategic-options.md",
+  "title": "SWOT Analysis and Strategic Options",
+  "words": 2400,
+  "research": false
+ },
+ {
+  "file": "90-appendix-glossary.md",
+  "title": "Glossary",
+  "words": 1800,
+  "research": false
+ },
+ {
+  "file": "91-appendix-assumptions-and-open-questions.md",
+  "title": "Assumptions, Open Questions and Validation Plan",
+  "words": 2000,
+  "research": false
+ }
+]

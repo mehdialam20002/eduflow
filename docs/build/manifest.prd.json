@@ -1,0 +1,384 @@
+[
+ {
+  "file": "01-introduction-and-product-overview.md",
+  "title": "Introduction and Product Overview",
+  "words": 2600,
+  "kind": "cross"
+ },
+ {
+  "file": "02-users-roles-and-key-journeys.md",
+  "title": "Users, Roles and Key Journeys",
+  "words": 3200,
+  "kind": "cross"
+ },
+ {
+  "file": "03-release-plan-and-plan-gating.md",
+  "title": "Release Plan and Plan Gating",
+  "words": 2600,
+  "kind": "cross"
+ },
+ {
+  "file": "04-system-architecture.md",
+  "title": "System Architecture",
+  "words": 4200,
+  "kind": "cross"
+ },
+ {
+  "file": "05-multi-tenancy-and-data-isolation.md",
+  "title": "Multi-Tenancy and Data Isolation",
+  "words": 3400,
+  "kind": "cross"
+ },
+ {
+  "file": "06-authentication-and-sessions.md",
+  "title": "Authentication and Sessions",
+  "words": 3600,
+  "kind": "cross"
+ },
+ {
+  "file": "07-rbac-and-permissions-matrix.md",
+  "title": "RBAC and Permissions Matrix",
+  "words": 3800,
+  "kind": "cross"
+ },
+ {
+  "file": "08-design-system-and-ux-guidelines.md",
+  "title": "Design System and UX Guidelines",
+  "words": 3200,
+  "kind": "cross"
+ },
+ {
+  "file": "10-dashboard-module.md",
+  "title": "Dashboard Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "DASH"
+ },
+ {
+  "file": "11-organizations-module.md",
+  "title": "Organizations Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "ORG"
+ },
+ {
+  "file": "12-multi-campus-module.md",
+  "title": "Multi Campus Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "CAMP"
+ },
+ {
+  "file": "13-student-admission-module.md",
+  "title": "Student Admission Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "ADM"
+ },
+ {
+  "file": "14-student-profile-module.md",
+  "title": "Student Profile Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "STU"
+ },
+ {
+  "file": "15-teachers-module.md",
+  "title": "Teachers Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "TCH"
+ },
+ {
+  "file": "16-staff-module.md",
+  "title": "Staff Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "STF"
+ },
+ {
+  "file": "17-attendance-module.md",
+  "title": "Attendance Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "ATT"
+ },
+ {
+  "file": "18-leave-module.md",
+  "title": "Leave Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "LEV"
+ },
+ {
+  "file": "19-batch-module.md",
+  "title": "Batch Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "BAT"
+ },
+ {
+  "file": "20-timetable-module.md",
+  "title": "Timetable Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "TT"
+ },
+ {
+  "file": "21-subjects-module.md",
+  "title": "Subjects Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "SUB"
+ },
+ {
+  "file": "22-homework-module.md",
+  "title": "Homework Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "HW"
+ },
+ {
+  "file": "23-exams-module.md",
+  "title": "Exams Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "EXM"
+ },
+ {
+  "file": "24-report-cards-module.md",
+  "title": "Report Cards Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "RPT"
+ },
+ {
+  "file": "25-fees-module.md",
+  "title": "Fees Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "FEE"
+ },
+ {
+  "file": "26-payments-module.md",
+  "title": "Payments Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "PAY"
+ },
+ {
+  "file": "27-discounts-module.md",
+  "title": "Discounts Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "DSC"
+ },
+ {
+  "file": "28-scholarships-module.md",
+  "title": "Scholarships Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "SCH"
+ },
+ {
+  "file": "29-parent-portal-module.md",
+  "title": "Parent Portal Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "PP"
+ },
+ {
+  "file": "30-student-portal-module.md",
+  "title": "Student Portal Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "SP"
+ },
+ {
+  "file": "31-notifications-module.md",
+  "title": "Notifications Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "NTF"
+ },
+ {
+  "file": "32-whatsapp-module.md",
+  "title": "WhatsApp Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "WA"
+ },
+ {
+  "file": "33-email-module.md",
+  "title": "Email Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "EML"
+ },
+ {
+  "file": "34-sms-module.md",
+  "title": "SMS Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "SMS"
+ },
+ {
+  "file": "35-library-module.md",
+  "title": "Library Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "LIB"
+ },
+ {
+  "file": "36-inventory-module.md",
+  "title": "Inventory Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "INV"
+ },
+ {
+  "file": "37-transport-module.md",
+  "title": "Transport Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "TRN"
+ },
+ {
+  "file": "38-hostel-module.md",
+  "title": "Hostel Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "HST"
+ },
+ {
+  "file": "39-payroll-module.md",
+  "title": "Payroll Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "PRL"
+ },
+ {
+  "file": "40-certificates-module.md",
+  "title": "Certificates Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "CRT"
+ },
+ {
+  "file": "41-analytics-module.md",
+  "title": "Analytics Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "ANL"
+ },
+ {
+  "file": "42-ai-insights-module.md",
+  "title": "AI Insights Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "AI"
+ },
+ {
+  "file": "43-settings-module.md",
+  "title": "Settings Module",
+  "words": 4500,
+  "kind": "module",
+  "code": "SET"
+ },
+ {
+  "file": "50-database-design-overview.md",
+  "title": "Database Design Overview",
+  "words": 3800,
+  "kind": "cross"
+ },
+ {
+  "file": "51-data-dictionary-platform-and-people.md",
+  "title": "Data Dictionary: Platform and People",
+  "words": 5000,
+  "kind": "cross"
+ },
+ {
+  "file": "52-data-dictionary-academics.md",
+  "title": "Data Dictionary: Academics",
+  "words": 4500,
+  "kind": "cross"
+ },
+ {
+  "file": "53-data-dictionary-finance-and-communication.md",
+  "title": "Data Dictionary: Finance and Communication",
+  "words": 5000,
+  "kind": "cross"
+ },
+ {
+  "file": "54-data-dictionary-operations-and-hr.md",
+  "title": "Data Dictionary: Operations, HR and Intelligence",
+  "words": 5000,
+  "kind": "cross"
+ },
+ {
+  "file": "55-api-standards-and-conventions.md",
+  "title": "API Standards and Conventions",
+  "words": 3600,
+  "kind": "cross"
+ },
+ {
+  "file": "57-integrations-and-webhooks.md",
+  "title": "Integrations and Webhooks",
+  "words": 3600,
+  "kind": "cross"
+ },
+ {
+  "file": "58-background-jobs-and-events.md",
+  "title": "Background Jobs and Events",
+  "words": 3000,
+  "kind": "cross"
+ },
+ {
+  "file": "60-security-architecture.md",
+  "title": "Security Architecture",
+  "words": 4200,
+  "kind": "cross"
+ },
+ {
+  "file": "61-privacy-and-compliance.md",
+  "title": "Privacy and Compliance",
+  "words": 3600,
+  "kind": "cross"
+ },
+ {
+  "file": "62-audit-logs-backups-and-disaster-recovery.md",
+  "title": "Audit Logs, Backups and Disaster Recovery",
+  "words": 3000,
+  "kind": "cross"
+ },
+ {
+  "file": "63-internationalization-and-localization.md",
+  "title": "Internationalization and Localization",
+  "words": 3400,
+  "kind": "cross"
+ },
+ {
+  "file": "64-non-functional-requirements.md",
+  "title": "Non-Functional Requirements",
+  "words": 3000,
+  "kind": "cross"
+ },
+ {
+  "file": "65-testing-and-quality-assurance.md",
+  "title": "Testing and Quality Assurance",
+  "words": 3000,
+  "kind": "cross"
+ },
+ {
+  "file": "92-appendix-error-codes.md",
+  "title": "Error Codes",
+  "words": 2000,
+  "kind": "cross"
+ },
+ {
+  "file": "94-appendix-glossary.md",
+  "title": "Glossary",
+  "words": 1600,
+  "kind": "cross"
+ }
+]

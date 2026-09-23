@@ -1,0 +1,273 @@
+# Permission keys extracted from the API registry
+
+| Permission | Meaning | Endpoints using it |
+|---|---|---|
+| dashboard.view | See the role dashboard and save own layout | 13 |
+| dashboard.view_finance | See fee and collection widgets | 2 |
+| dashboard.manage | Force a metric snapshot recompute | 1 |
+| users.view | View users, sessions, login history, invitations | 7 |
+| users.create | Create user logins directly | 1 |
+| users.update | Edit user details | 1 |
+| users.delete | Soft delete users | 1 |
+| users.manage | Suspend, activate, deactivate, reset password or MFA, revoke sessions, set campuses | 7 |
+| users.invite | Send, resend, revoke and bulk-send invitations | 4 |
+| users.export | Export the user list | 1 |
+| roles.view | View roles and the permission catalogue | 3 |
+| roles.create | Create or clone custom roles | 2 |
+| roles.update | Edit custom roles and their permission grants | 2 |
+| roles.delete | Delete custom roles | 1 |
+| roles.assign | Assign roles to users | 1 |
+| organizations.view | View tenant profile, plan usage and enabled features | 2 |
+| organizations.update | Edit tenant profile and branding | 2 |
+| organizations.manage | Onboarding wizard, custom domain, ownership transfer, account closure | 6 |
+| billing.view | View subscription, invoices and add-ons | 7 |
+| billing.manage | Buy or change plan, pay invoices, buy or cancel add-ons | 8 |
+| platform.view | SUPER_ADMIN console: read tenants, subscriptions, invoices, plans, metrics, audit | 8 |
+| platform.manage | SUPER_ADMIN console: manage tenants, plans, invoices, platform users | 20 |
+| platform.impersonate | SUPER_ADMIN console: act inside a tenant with an audited token | 1 |
+| campuses.view | View campuses, campus users and campus KPIs | 6 |
+| campuses.create | Create a campus | 1 |
+| campuses.update | Edit a campus | 1 |
+| campuses.delete | Soft delete a campus | 1 |
+| campuses.manage | Activate, deactivate, archive, set main, assign users, copy setup | 6 |
+| campuses.export | Export the campus list | 1 |
+| admissions.view | View leads, follow-ups, applications, funnel and seats | 9 |
+| admissions.create | Add leads and applications; convert lead to application | 3 |
+| admissions.update | Edit leads and applications, follow-ups, documents, stage and review steps | 14 |
+| admissions.delete | Soft delete leads and draft applications | 2 |
+| admissions.manage | Assign leads to counsellors | 1 |
+| admissions.approve | Approve, waitlist or reject applications; waive application fee | 4 |
+| admissions.enroll | Convert an approved application into a student | 1 |
+| admissions.import | Import leads from Excel | 1 |
+| admissions.export | Export leads and applications | 2 |
+| students.view | View students, guardians, families, enrollments, documents, notes, transfers | 15 |
+| students.create | Admit a student directly | 1 |
+| students.update | Edit students, guardians, families and documents; bulk update | 10 |
+| students.delete | Soft delete students | 1 |
+| students.manage | Change student status; verify documents | 2 |
+| students.view_medical | Read decrypted medical notes (schema comment names it students.medical.view) | 1 |
+| students.update_medical | Write medical notes | 1 |
+| students.manage_notes | Add, edit, share and delete student notes | 3 |
+| students.enroll | Create, edit and end enrollments; assign roll numbers | 4 |
+| students.promote | Run year-end bulk promotion | 1 |
+| students.transfer | Request or cancel a batch, course or campus transfer | 2 |
+| students.approve | Approve or reject student transfers | 2 |
+| students.import | Import students from Excel | 1 |
+| students.export | Export students; generate ID cards | 2 |
+| teachers.view | View teachers, subjects, assignments, timetable, workload | 9 |
+| teachers.create | Create a teacher | 1 |
+| teachers.update | Edit teachers, qualified subjects and documents | 4 |
+| teachers.delete | Soft delete teachers | 1 |
+| teachers.manage | Change teacher status | 1 |
+| teachers.assign | Assign teachers to batches and subjects | 3 |
+| teachers.import | Import teachers from Excel | 1 |
+| teachers.export | Export the teacher list | 1 |
+| staff.view | View staff, history, documents, departments, designations, org chart | 10 |
+| staff.create | Create a staff profile | 1 |
+| staff.update | Edit staff and documents | 3 |
+| staff.delete | Soft delete staff | 1 |
+| staff.manage | Status, position, transfer, exit; verify documents; manage departments and designations | 11 |
+| staff.view_sensitive | Read decrypted bank, tax and national ids | 1 |
+| staff.update_sensitive | Write bank, tax, national and statutory ids | 1 |
+| staff.import | Import staff from Excel | 1 |
+| staff.export | Export staff; generate ID cards | 2 |
+| parentportal.access | Parent Portal access; ownership through StudentGuardian and Family checked in code | 68 |
+| studentportal.access | Student Portal access; own record only, checked in code | 45 |
+| attendance.view | View student attendance sessions, records and reports | 7 |
+| attendance.mark | Take student attendance, send absence alerts, push device punches | 5 |
+| attendance.update | Correct a saved student attendance record | 1 |
+| attendance.manage | Lock sessions (single and bulk) | 2 |
+| attendance.unlock | Reopen a locked attendance session | 1 |
+| attendance.import | Import student or staff attendance from Excel | 2 |
+| attendance.export | Export student or staff attendance | 2 |
+| attendance.view_staff | View staff attendance and the staff monthly register | 2 |
+| attendance.mark_staff | Mark and correct staff attendance | 2 |
+| leave.view | View leave types, policies, balances and staff leave requests | 6 |
+| leave.create | Apply for staff leave and cancel it | 2 |
+| leave.approve | Approve or reject staff leave at the assigned level | 3 |
+| leave.manage | Configure leave types and policies; allocate, adjust and carry forward balances | 9 |
+| leave.export | Export leave register and balances | 1 |
+| leave.view_student | View student leave requests | 2 |
+| leave.create_student | Record a student leave request on behalf of a parent | 1 |
+| leave.approve_student | Approve or reject student leave requests | 2 |
+| batches.view | View academic years, terms, courses, batches, enrollments, rooms, holidays, calendar, PTM bookings | 15 |
+| batches.create | Create batches and clone them from a previous year | 2 |
+| batches.update | Update batches and change batch status | 2 |
+| batches.delete | Delete (soft) batches | 1 |
+| batches.manage | Configure academic years, terms, courses, rooms, holidays and calendar events | 21 |
+| batches.enroll | Enroll, update, withdraw students and assign roll numbers | 5 |
+| batches.promote | Preview and run year-end promotion | 2 |
+| batches.manage_ptm | Book, update and cancel PTM slots as staff | 3 |
+| batches.import | Import enrollments from Excel | 1 |
+| batches.export | Export batch lists and rosters | 1 |
+| timetable.view | View bell schedule, timetables, substitutions, class sessions, availability and workload | 8 |
+| timetable.create | Create timetable cells, copy timetables, create class sessions | 3 |
+| timetable.update | Update timetable cells and class sessions (cancel, reschedule, complete) | 6 |
+| timetable.delete | Delete timetable cells | 1 |
+| timetable.manage | Configure period slots; generate class sessions | 4 |
+| timetable.substitute | Assign, change and cancel substitutions; see uncovered periods | 4 |
+| timetable.export | Export timetables (PDF / XLSX) | 1 |
+| subjects.view | View subjects, curriculum and teacher allocation | 6 |
+| subjects.create | Create subjects (single and bulk) | 2 |
+| subjects.update | Update subjects | 1 |
+| subjects.delete | Archive subjects | 1 |
+| subjects.manage | Maintain course curriculum (CourseSubject) | 5 |
+| subjects.assign_teachers | Assign teachers to batch subjects | 4 |
+| subjects.export | Export curriculum and allocation matrix | 1 |
+| homework.view | View homework, submissions and study materials | 6 |
+| homework.create | Create homework and study materials | 2 |
+| homework.update | Update, publish, close, cancel, remind; manage attachments and materials | 8 |
+| homework.delete | Delete (soft) homework and study materials | 2 |
+| homework.grade | Mark submissions, grade and request resubmission | 3 |
+| homework.export | Export homework reports | 1 |
+| exams.view | View grade scales, exams, papers, marks, results, analysis, re-evaluation requests | 13 |
+| exams.create | Create exams and exam papers | 3 |
+| exams.update | Update exams and papers; publish date sheet, open marks entry, cancel | 5 |
+| exams.delete | Delete (soft) exams and papers without marks | 2 |
+| exams.manage | Configure grade scales | 4 |
+| exams.enter_marks | Enter and submit marks; download the marks template | 3 |
+| exams.verify_marks | Verify or reopen submitted marks | 2 |
+| exams.publish | Publish and unpublish results | 2 |
+| exams.reevaluate | Record, accept, resolve and reject re-evaluation requests | 4 |
+| exams.import | Import marks from Excel | 1 |
+| exams.export | Export date sheets, marks and result sheets; generate admit cards | 2 |
+| reportcards.view | View templates, report cards and PDFs | 6 |
+| reportcards.manage | Configure report card templates | 5 |
+| reportcards.generate | Generate and regenerate report cards | 2 |
+| reportcards.update | Edit overall remarks, result override and template of a card | 1 |
+| reportcards.delete | Delete (soft) unpublished report cards | 1 |
+| reportcards.remark | Write, edit and delete report card remarks | 4 |
+| reportcards.publish | Publish (single and bulk) and withhold report cards | 3 |
+| reportcards.export | Bulk download PDFs and export the result register | 2 |
+| fees.view | View fee setup, assignments, invoices, ledgers, fee reports | 14 |
+| fees.manage | Manage fee heads, tax rates, late-fee rules, fee structures; year-end carry-forward | 11 |
+| fees.create | Assign fee structures; create, generate and issue invoices | 6 |
+| fees.update | Edit assignments and DRAFT invoices; request invoice adjustments | 6 |
+| fees.delete | Cancel assignments; discard DRAFT and cancel issued invoices | 2 |
+| fees.approve | Approve or reject adjustments; write off balances | 3 |
+| fees.remind | Send single and bulk fee reminders | 2 |
+| fees.collect | Record counter payments, allocate advances, create orders and pay links, send receipts | 7 |
+| fees.import | Import opening dues from Excel | 1 |
+| fees.export | Export invoices, dues and defaulter reports | 1 |
+| payments.view | View payments, receipts, orders, refunds, settlements, day closes, payment reports | 15 |
+| payments.update | Update cheque status, record cheque bounce | 2 |
+| payments.cancel | Cancel a payment; cancel and reissue a receipt | 2 |
+| payments.refund | Request and process refunds | 2 |
+| payments.approve | Approve or reject refunds; verify day closes | 3 |
+| payments.close_day | Prepare and submit the daily cash close | 2 |
+| payments.reconcile | Sync and reconcile gateway settlements | 2 |
+| payments.manage | Manage gateway accounts; view and retry webhook events | 7 |
+| payments.import | Import historical payments from Excel | 1 |
+| payments.export | Export payment, receipt, refund and day-book data | 1 |
+| discounts.view | View schemes, grants, previews, sibling suggestions, impact report | 6 |
+| discounts.manage | Create, update and archive discount schemes | 3 |
+| discounts.create | Grant a discount to one or many students | 2 |
+| discounts.update | Edit a pending grant | 1 |
+| discounts.approve | Approve or reject grants | 2 |
+| discounts.delete | Revoke an approved grant | 1 |
+| discounts.export | Export grants and impact report | 1 |
+| scholarships.view | View schemes, applications, awards, utilisation report | 7 |
+| scholarships.manage | Create, update, archive, open and close schemes | 5 |
+| scholarships.create | Create and submit applications for a student | 2 |
+| scholarships.update | Edit, review, shortlist or withdraw applications | 4 |
+| scholarships.approve | Approve or reject applications; award, suspend, reinstate, revoke, renew | 7 |
+| scholarships.disburse | Record and reverse disbursements | 2 |
+| scholarships.export | Export scholarship data | 1 |
+| notifications.view | View templates, event catalog, announcements, delivery log, summary | 9 |
+| notifications.manage | Create, update, delete and test notification templates | 4 |
+| notifications.create | Create announcements and preview audiences | 2 |
+| notifications.update | Edit draft or scheduled announcements | 1 |
+| notifications.delete | Delete announcements | 1 |
+| notifications.send | Send, schedule or cancel announcements; resend messages | 3 |
+| notifications.export | Export the delivery log | 1 |
+| whatsapp.view | View accounts, templates, log, inbox, opt-ins, wallet, summary | 9 |
+| whatsapp.manage | Connect accounts, manage templates, record opt-ins, wallet settings and top-ups | 11 |
+| whatsapp.send | Send WhatsApp messages; handle and reply to inbound messages | 3 |
+| whatsapp.export | Export the WhatsApp log | 1 |
+| email.view | View sender identities, email log, suppressions, summary | 5 |
+| email.manage | Manage sender identities and the suppression list | 6 |
+| email.send | Send and resend emails | 2 |
+| email.export | Export the email log | 1 |
+| sms.view | View headers, DLT templates, SMS log, wallet, summary; preview messages | 7 |
+| sms.manage | Manage headers, DLT templates, wallet settings and top-ups | 9 |
+| sms.send | Send SMS | 1 |
+| sms.import | Import DLT templates from Excel | 1 |
+| sms.export | Export the SMS log | 1 |
+| library.view | View catalogue, categories, copies, loans, holds and library dashboard; print labels | 10 |
+| library.create | Add titles and copies | 2 |
+| library.update | Update titles and copies; change copy status | 3 |
+| library.delete | Archive titles | 1 |
+| library.manage | Configure categories; send due and overdue reminders | 4 |
+| library.issue | Circulation desk: issue, renew, return, mark lost, holds, member summary | 7 |
+| library.collect_fine | Bill a library fine to a fee invoice or counter payment | 1 |
+| library.approve | Waive a library fine | 1 |
+| library.import | Import catalogue from Excel | 1 |
+| library.export | Export catalogue, loan, overdue and fine registers | 2 |
+| inventory.view | View items, categories, vendors, purchase orders, ledger, assets, reports | 15 |
+| inventory.create | Create items and purchase orders; submit a PO for approval | 3 |
+| inventory.update | Update items and DRAFT POs; mark ordered, cancel; direct IN / OUT entries | 5 |
+| inventory.delete | Archive items; delete DRAFT POs | 2 |
+| inventory.manage | Configure categories and vendors | 6 |
+| inventory.approve | Approve or send back purchase orders | 2 |
+| inventory.receive | Receive goods against a purchase order | 1 |
+| inventory.issue | Issue and take back stock; assign and close asset assignments | 5 |
+| inventory.sell | Sell items to students with a fee invoice | 1 |
+| inventory.transfer | Transfer stock between campus stores | 1 |
+| inventory.adjust | Stock-count adjustments and write-offs | 1 |
+| inventory.import | Import items and opening stock from Excel | 1 |
+| inventory.export | Export items, ledger and asset register | 3 |
+| transport.view | View vehicles, drivers, routes, stops, assignments, trips, maintenance, alerts | 15 |
+| transport.create | Create vehicles and routes | 2 |
+| transport.update | Update vehicles, routes and stops; schedule, change and cancel trips | 9 |
+| transport.delete | Archive vehicles and routes | 2 |
+| transport.manage | Maintain driver profiles and vehicle maintenance records | 6 |
+| transport.assign | Assign students to routes; change, suspend, resume, end; bulk assign | 6 |
+| transport.mark | Driver / attendant: own trips, start, boarding marks, complete | 5 |
+| transport.import | Import transport assignments from Excel | 1 |
+| transport.export | Export assignments, rosters and trip logs | 2 |
+| hostel.view | View hostels, rooms, beds, allocations, roll call, visitors, out-passes | 14 |
+| hostel.create | Create hostels and rooms (single and bulk) | 3 |
+| hostel.update | Update hostels, rooms and beds | 5 |
+| hostel.delete | Archive hostels and rooms | 2 |
+| hostel.allocate | Reserve, allocate, check in, transfer, vacate and cancel beds | 6 |
+| hostel.mark | Warden desk: roll call, visitor register, raise / cancel out-pass, gate check-out and check-in | 8 |
+| hostel.approve | Approve or reject out-pass requests | 2 |
+| hostel.export | Export resident and roll-call registers | 2 |
+| payroll.view | View pay heads, structures, salaries, runs, payslips, adjustments, loans, declarations, statutory settings | 18 |
+| payroll.manage | Configure pay heads, structures, staff salaries, statutory settings; create adjustments and loans | 15 |
+| payroll.process | Create, process and delete DRAFT runs; edit, hold, release payslips; mark paid; send payslips; disburse and close loans | 10 |
+| payroll.approve | Approve, reopen and lock runs; cancel payslips; approve adjustments and loans; verify tax declarations | 9 |
+| payroll.import | Import payroll adjustments from Excel | 1 |
+| payroll.export | Bank file, statutory files, salary register and payslip export | 3 |
+| certificates.view | View templates, requests, issued certificates and PDFs; preview templates | 10 |
+| certificates.manage | Configure certificate templates | 5 |
+| certificates.create | Raise and cancel certificate requests as staff | 2 |
+| certificates.approve | Approve or reject certificate requests | 2 |
+| certificates.issue | Issue (single, bulk, from request), reissue and send certificates | 5 |
+| certificates.revoke | Revoke an issued certificate | 1 |
+| certificates.export | Export the issue register | 1 |
+| analytics.view | Open the report library, saved and shared reports, schedules list, KPI and analysis endpoints | 16 |
+| analytics.build | Use the report builder: datasets, preview, save, update, delete, duplicate, share | 7 |
+| analytics.schedule | Create, update, pause, resume, delete and run report schedules | 6 |
+| analytics.export | Export standard and saved reports | 2 |
+| analytics.manage | Rebuild daily metric snapshots | 1 |
+| ai.view | View insights, risk scores and current quota; mark seen; give feedback | 9 |
+| ai.update | Mark an insight acted or dismissed | 2 |
+| ai.query | Ask the AI assistant and see own question history | 5 |
+| ai.manage | Trigger insight and risk runs; see all questions and usage history | 3 |
+| ai.export | Export the at-risk student list | 1 |
+| settings.view | View settings, branding, number sequences, custom fields, gateway accounts, policy documents | 10 |
+| settings.update | Update setting groups and branding; verify custom domain | 4 |
+| settings.manage | Configure number sequences and custom fields | 6 |
+| settings.manage_gateways | Connect, update, verify, default and disconnect payment gateway accounts | 5 |
+| settings.manage_privacy | Policy documents, consent register, data-subject requests, breach register | 20 |
+| settings.manage_api_keys | Create, update, rotate and revoke API keys | 5 |
+| settings.export | Export the consent register | 1 |
+| files.view | List files, read metadata, get download URLs, bulk download | 4 |
+| files.create | Request a pre-signed upload and confirm it | 2 |
+| files.delete | Delete (soft) a file | 1 |
+| imports.view | View import templates, jobs, row errors and error files | 6 |
+| imports.create | Start, detect columns, commit and cancel import jobs | 4 |
+| audit.view | Search and read audit logs | 3 |
+| audit.export | Export audit logs | 1 |
+| audit.manage | Verify the audit hash chain | 1 |

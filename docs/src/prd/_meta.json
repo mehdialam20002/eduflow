@@ -1,0 +1,174 @@
+{
+  "title": "Product Requirements Document",
+  "shortTitle": "PRD",
+  "docType": "Product Requirements Document (PRD)",
+  "coverNote": "System architecture, RBAC, 34 modules with screens and wireframes, database design, 300+ REST APIs, security and internationalization.",
+  "output": "EduFlow_PRD.pdf",
+  "tocDepth": 2,
+  "tocDepthRules": [
+    {
+      "match": "^(1\\d|2\\d|3\\d|4[0-3])-",
+      "depth": 1
+    },
+    {
+      "match": "^9\\d-",
+      "depth": 1
+    }
+  ],
+  "howToRead": [
+    "This PRD describes exactly what to build. Parts I and II explain the product foundation and architecture. Parts III to VIII describe the 34 modules, one chapter per module, always in the same section order so you can find things fast.",
+    "Every module chapter has: objective, user stories, workflow, screens with ASCII wireframes, validation and business rules, acceptance criteria, edge cases, database tables, Prisma models, API endpoints with request and response examples, permissions, notifications and test scenarios.",
+    "IDs help you trace work: FEE-S02 is a screen, FEE-US-03 a user story, FEE-AC-05 an acceptance criterion, FEE-API-04 an endpoint. Use these IDs in Claude Code prompts, commits and test cases.",
+    "The Prisma schema in the appendix was validated with the Prisma CLI. Treat it as the source of truth for the database."
+  ],
+  "parts": [
+    {
+      "title": "Part I — Product Foundation",
+      "startsAt": "01-",
+      "blurb": "What the product is, who uses it, and what ships in which phase and plan."
+    },
+    {
+      "title": "Part II — Architecture and Platform",
+      "startsAt": "04-",
+      "blurb": "How the system is built: components, multi-tenancy, login, permissions and the design system."
+    },
+    {
+      "title": "Part III — Modules: Platform and People",
+      "startsAt": "10-",
+      "blurb": "Dashboard, Organizations, Multi Campus, Student Admission, Student Profile, Teachers and Staff."
+    },
+    {
+      "title": "Part IV — Modules: Academics",
+      "startsAt": "17-",
+      "blurb": "Attendance, Leave, Batch, Timetable, Subjects, Homework, Exams and Report Cards."
+    },
+    {
+      "title": "Part V — Modules: Finance",
+      "startsAt": "25-",
+      "blurb": "Fees, Payments, Discounts and Scholarships."
+    },
+    {
+      "title": "Part VI — Modules: Portals and Communication",
+      "startsAt": "29-",
+      "blurb": "Parent Portal, Student Portal, Notifications, WhatsApp, Email and SMS."
+    },
+    {
+      "title": "Part VII — Modules: Campus Operations",
+      "startsAt": "35-",
+      "blurb": "Library, Inventory, Transport, Hostel, Payroll and Certificates."
+    },
+    {
+      "title": "Part VIII — Modules: Intelligence and Settings",
+      "startsAt": "41-",
+      "blurb": "Analytics, AI Insights and Settings."
+    },
+    {
+      "title": "Part IX — Data and API",
+      "startsAt": "50-",
+      "blurb": "Database design, data dictionary, API standards, the full endpoint catalog, integrations and background jobs."
+    },
+    {
+      "title": "Part X — Security, Quality and Global Readiness",
+      "startsAt": "60-",
+      "blurb": "Security, privacy, audit and backups, internationalization, non-functional requirements and testing."
+    },
+    {
+      "title": "Appendices",
+      "startsAt": "90-",
+      "blurb": "Full Prisma schema, screen inventory, error codes, notification templates and glossary."
+    }
+  ],
+  "key": "prd",
+  "product": "EduFlow",
+  "tagline": "Enterprise Multi-Tenant School & Coaching ERP",
+  "version": "1.0",
+  "date": "20 September 2026",
+  "owner": "Mehdi Alam (Founder)",
+  "preparedBy": "Mehdi Alam with Claude Code",
+  "status": "Baseline v1.0",
+  "markets": "India, then UAE, USA, Australia",
+  "info": [
+    [
+      "Product",
+      "EduFlow — multi-tenant SaaS ERP for schools and coaching institutes"
+    ],
+    [
+      "Document",
+      "Product Requirements Document"
+    ],
+    [
+      "Version",
+      "1.0"
+    ],
+    [
+      "Date",
+      "20 September 2026"
+    ],
+    [
+      "Document owner",
+      "Mehdi Alam (Founder)"
+    ],
+    [
+      "Prepared by",
+      "Mehdi Alam with Claude Code (Anthropic) as AI product, architecture and documentation assistant"
+    ],
+    [
+      "Status",
+      "Baseline for execution — review every quarter"
+    ],
+    [
+      "Target markets",
+      "Phase 1: India. Phase 2: UAE, USA, Australia"
+    ],
+    [
+      "Classification",
+      "Confidential — internal"
+    ]
+  ],
+  "revisions": [
+    {
+      "version": "1.0",
+      "date": "20 Sep 2026",
+      "author": "Mehdi Alam with Claude Code",
+      "changes": "Initial complete PRD covering all 34 modules"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "Founder and product owner",
+      "name": "Mehdi Alam",
+      "responsibility": "Owns vision, scope and final decisions",
+      "signoff": "Pending"
+    },
+    {
+      "role": "Technical reviewer",
+      "name": "To be appointed (first senior engineer or advisor)",
+      "responsibility": "Reviews architecture, security and data model",
+      "signoff": "Pending"
+    },
+    {
+      "role": "Domain reviewer",
+      "name": "Pilot institute owner / principal",
+      "responsibility": "Checks that workflows match real school and coaching operations",
+      "signoff": "Pending"
+    }
+  ],
+  "companions": [
+    {
+      "name": "Business Requirements Document (BRD)",
+      "file": "EduFlow_BRD.pdf",
+      "answers": "Why we build EduFlow, for whom, how we make money, how we sell, and the 5-year plan"
+    },
+    {
+      "name": "Product Requirements Document (PRD)",
+      "file": "EduFlow_PRD.pdf",
+      "answers": "Exactly what to build: architecture, 34 modules, screens, database, APIs, security"
+    },
+    {
+      "name": "Founder Blueprint",
+      "file": "EduFlow_Founder_Blueprint.pdf",
+      "answers": "How to execute: 60-day plan, Claude Code prompts, engineering handbook, deployment, sales scripts, scaling"
+    }
+  ],
+  "notice": "Market sizes, competitor details and legal notes in this document come from public sources and are marked as estimates where they could not be verified. Revenue numbers are targets and models, not guarantees. Verify legal, tax and compliance points with a qualified professional before acting on them."
+}

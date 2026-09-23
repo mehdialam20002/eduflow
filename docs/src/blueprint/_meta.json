@@ -1,0 +1,153 @@
+{
+  "title": "Founder Blueprint",
+  "shortTitle": "Blueprint",
+  "docType": "Founder Execution Guide",
+  "coverNote": "60-day build plan, 60 Claude Code prompts, engineering handbook, deployment guides, sales scripts and the path from 100 to 10,000 customers.",
+  "output": "EduFlow_Founder_Blueprint.pdf",
+  "tocDepth": 2,
+  "howToRead": [
+    "This is your day-to-day execution guide. The BRD says why, the PRD says what, and this Blueprint says how and when.",
+    "Follow Part II day by day during the 60-day sprint. Each day names the Claude Code prompts to use from Part III. Copy a prompt, paste it into Claude Code, review the result with the checklist given, commit, and move on.",
+    "Parts IV and V are your engineering and deployment handbook. Part VI is your sales playbook with ready scripts in English and Hinglish. Part VII shows how the system, team and costs change as you grow from 100 to 10,000 customers."
+  ],
+  "parts": [
+    {
+      "title": "Part I — Start Here",
+      "startsAt": "01-",
+      "blurb": "How to use this blueprint and how to work with Claude Code."
+    },
+    {
+      "title": "Part II — The 60-Day Roadmap",
+      "startsAt": "03-",
+      "blurb": "Weekly milestones and a plan for every single day from Day 1 to Day 60, then the road to Day 120."
+    },
+    {
+      "title": "Part III — Claude Code Prompt Library",
+      "startsAt": "10-",
+      "blurb": "Sixty copy-paste prompts that build EduFlow module by module."
+    },
+    {
+      "title": "Part IV — Engineering Handbook",
+      "startsAt": "20-",
+      "blurb": "Folder structure, coding standards, Git workflow, local setup and testing."
+    },
+    {
+      "title": "Part V — Deployment and Operations",
+      "startsAt": "30-",
+      "blurb": "Environments, Docker, CI/CD, Vercel, Railway, AWS, monitoring, backups and incidents."
+    },
+    {
+      "title": "Part VI — Sales Playbook",
+      "startsAt": "40-",
+      "blurb": "Lead lists, cold calls, WhatsApp and email templates, demo script, objections, closing and onboarding."
+    },
+    {
+      "title": "Part VII — Scaling from 100 to 10,000 Customers",
+      "startsAt": "50-",
+      "blurb": "How architecture, team, process and cost evolve at each stage."
+    },
+    {
+      "title": "Part VIII — Founder Operating System",
+      "startsAt": "60-",
+      "blurb": "Weekly rhythm, budget, legal and company setup."
+    },
+    {
+      "title": "Appendices",
+      "startsAt": "90-",
+      "blurb": "Environment variables, commands, checklists and the prompt index."
+    }
+  ],
+  "key": "blueprint",
+  "product": "EduFlow",
+  "tagline": "Enterprise Multi-Tenant School & Coaching ERP",
+  "version": "1.0",
+  "date": "20 September 2026",
+  "owner": "Mehdi Alam (Founder)",
+  "preparedBy": "Mehdi Alam with Claude Code",
+  "status": "Baseline v1.0",
+  "markets": "India, then UAE, USA, Australia",
+  "info": [
+    [
+      "Product",
+      "EduFlow — multi-tenant SaaS ERP for schools and coaching institutes"
+    ],
+    [
+      "Document",
+      "Founder Blueprint"
+    ],
+    [
+      "Version",
+      "1.0"
+    ],
+    [
+      "Date",
+      "20 September 2026"
+    ],
+    [
+      "Document owner",
+      "Mehdi Alam (Founder)"
+    ],
+    [
+      "Prepared by",
+      "Mehdi Alam with Claude Code (Anthropic) as AI product, architecture and documentation assistant"
+    ],
+    [
+      "Status",
+      "Baseline for execution — review every quarter"
+    ],
+    [
+      "Target markets",
+      "Phase 1: India. Phase 2: UAE, USA, Australia"
+    ],
+    [
+      "Classification",
+      "Confidential — internal"
+    ]
+  ],
+  "revisions": [
+    {
+      "version": "1.0",
+      "date": "20 Sep 2026",
+      "author": "Mehdi Alam with Claude Code",
+      "changes": "Initial complete Founder Blueprint"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "Founder and product owner",
+      "name": "Mehdi Alam",
+      "responsibility": "Owns vision, scope and final decisions",
+      "signoff": "Pending"
+    },
+    {
+      "role": "Technical reviewer",
+      "name": "To be appointed (first senior engineer or advisor)",
+      "responsibility": "Reviews architecture, security and data model",
+      "signoff": "Pending"
+    },
+    {
+      "role": "Domain reviewer",
+      "name": "Pilot institute owner / principal",
+      "responsibility": "Checks that workflows match real school and coaching operations",
+      "signoff": "Pending"
+    }
+  ],
+  "companions": [
+    {
+      "name": "Business Requirements Document (BRD)",
+      "file": "EduFlow_BRD.pdf",
+      "answers": "Why we build EduFlow, for whom, how we make money, how we sell, and the 5-year plan"
+    },
+    {
+      "name": "Product Requirements Document (PRD)",
+      "file": "EduFlow_PRD.pdf",
+      "answers": "Exactly what to build: architecture, 34 modules, screens, database, APIs, security"
+    },
+    {
+      "name": "Founder Blueprint",
+      "file": "EduFlow_Founder_Blueprint.pdf",
+      "answers": "How to execute: 60-day plan, Claude Code prompts, engineering handbook, deployment, sales scripts, scaling"
+    }
+  ],
+  "notice": "Market sizes, competitor details and legal notes in this document come from public sources and are marked as estimates where they could not be verified. Revenue numbers are targets and models, not guarantees. Verify legal, tax and compliance points with a qualified professional before acting on them."
+}

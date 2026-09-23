@@ -1,0 +1,143 @@
+{
+  "title": "Business Requirements Document",
+  "shortTitle": "BRD",
+  "docType": "Business Requirements Document (BRD)",
+  "coverNote": "Vision, market, customers, business model, pricing, go-to-market, KPIs, 5-year roadmap, financial plan and risks.",
+  "output": "EduFlow_BRD.pdf",
+  "tocDepth": 2,
+  "howToRead": [
+    "This BRD explains the business side of EduFlow in easy language: the problem, the market, the customers, how EduFlow earns money, how it will be sold, and the plan for the next five years.",
+    "Read Part I first. If you are short on time, read the \"In simple words\" line at the top and the \"Key takeaways\" list at the end of every chapter. Tables hold the exact numbers; every number that is a target or an estimate is labelled so.",
+    "Requirement IDs such as BR-014 in this document link to the modules described in the PRD."
+  ],
+  "parts": [
+    {
+      "title": "Part I — Vision and Opportunity",
+      "startsAt": "01-",
+      "blurb": "What EduFlow is, the problem it solves, and what the business wants to achieve."
+    },
+    {
+      "title": "Part II — Market and Competition",
+      "startsAt": "04-",
+      "blurb": "How big the market is in India and abroad, who else sells to it, and where EduFlow can win."
+    },
+    {
+      "title": "Part III — Customers",
+      "startsAt": "09-",
+      "blurb": "The people who buy and use EduFlow: their goals, frustrations, daily work and buying process."
+    },
+    {
+      "title": "Part IV — Business Model and Growth",
+      "startsAt": "11-",
+      "blurb": "How EduFlow makes money, what it charges, how it finds customers and how it keeps them."
+    },
+    {
+      "title": "Part V — Requirements and Measurement",
+      "startsAt": "16-",
+      "blurb": "What the business needs from the product, the rules it must follow, and the numbers that show progress."
+    },
+    {
+      "title": "Part VI — The Five-Year Plan",
+      "startsAt": "19-",
+      "blurb": "Roadmap, team, money and risks from Year 1 to Year 5."
+    },
+    {
+      "title": "Appendices",
+      "startsAt": "90-",
+      "blurb": "Glossary, assumptions and sources."
+    }
+  ],
+  "key": "brd",
+  "product": "EduFlow",
+  "tagline": "Enterprise Multi-Tenant School & Coaching ERP",
+  "version": "1.0",
+  "date": "20 September 2026",
+  "owner": "Mehdi Alam (Founder)",
+  "preparedBy": "Mehdi Alam with Claude Code",
+  "status": "Baseline v1.0",
+  "markets": "India, then UAE, USA, Australia",
+  "info": [
+    [
+      "Product",
+      "EduFlow — multi-tenant SaaS ERP for schools and coaching institutes"
+    ],
+    [
+      "Document",
+      "Business Requirements Document"
+    ],
+    [
+      "Version",
+      "1.0"
+    ],
+    [
+      "Date",
+      "20 September 2026"
+    ],
+    [
+      "Document owner",
+      "Mehdi Alam (Founder)"
+    ],
+    [
+      "Prepared by",
+      "Mehdi Alam with Claude Code (Anthropic) as AI product, architecture and documentation assistant"
+    ],
+    [
+      "Status",
+      "Baseline for execution — review every quarter"
+    ],
+    [
+      "Target markets",
+      "Phase 1: India. Phase 2: UAE, USA, Australia"
+    ],
+    [
+      "Classification",
+      "Confidential — internal"
+    ]
+  ],
+  "revisions": [
+    {
+      "version": "1.0",
+      "date": "20 Sep 2026",
+      "author": "Mehdi Alam with Claude Code",
+      "changes": "Initial complete BRD"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "Founder and product owner",
+      "name": "Mehdi Alam",
+      "responsibility": "Owns vision, scope and final decisions",
+      "signoff": "Pending"
+    },
+    {
+      "role": "Technical reviewer",
+      "name": "To be appointed (first senior engineer or advisor)",
+      "responsibility": "Reviews architecture, security and data model",
+      "signoff": "Pending"
+    },
+    {
+      "role": "Domain reviewer",
+      "name": "Pilot institute owner / principal",
+      "responsibility": "Checks that workflows match real school and coaching operations",
+      "signoff": "Pending"
+    }
+  ],
+  "companions": [
+    {
+      "name": "Business Requirements Document (BRD)",
+      "file": "EduFlow_BRD.pdf",
+      "answers": "Why we build EduFlow, for whom, how we make money, how we sell, and the 5-year plan"
+    },
+    {
+      "name": "Product Requirements Document (PRD)",
+      "file": "EduFlow_PRD.pdf",
+      "answers": "Exactly what to build: architecture, 34 modules, screens, database, APIs, security"
+    },
+    {
+      "name": "Founder Blueprint",
+      "file": "EduFlow_Founder_Blueprint.pdf",
+      "answers": "How to execute: 60-day plan, Claude Code prompts, engineering handbook, deployment, sales scripts, scaling"
+    }
+  ],
+  "notice": "Market sizes, competitor details and legal notes in this document come from public sources and are marked as estimates where they could not be verified. Revenue numbers are targets and models, not guarantees. Verify legal, tax and compliance points with a qualified professional before acting on them."
+}

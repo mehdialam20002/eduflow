@@ -1,0 +1,9 @@
+# Brief for 21-coding-standards.md
+
+Title: Coding Standards
+Minimum words: 3800
+Web research needed: no
+
+## What this chapter must cover (every item, fully)
+
+Practical standards with short good/bad code examples in TypeScript. General: TypeScript strict, no any, small functions, early returns, meaningful names. Naming conventions table (files kebab-case, React components PascalCase, hooks useX, variables camelCase, constants UPPER_SNAKE, DB snake_case via Prisma @map, API paths kebab-case plural, permission keys module.action, event names domain.entity.verb, env vars UPPER_SNAKE, branch names, test names). Backend patterns with code: route → controller → service → repository layering; Zod request validation; the response envelope helpers; AppError class with canon error codes; async error handling in Express 5; tenant-scoped Prisma access (never raw prisma without tenant context); transactions for money writes; idempotency for payments; pagination/sort/filter helper; permission middleware usage requirePermission('fees.collect'); audit log helper; structured logging with Pino and request IDs; config via Zod-validated env; date/time rules (UTC in DB, org timezone in UI); money rules (Decimal, never float; rounding). Frontend patterns with code: server vs client components, feature folders, TanStack Query keys and mutations with optimistic updates where safe, React Hook Form + Zod resolver sharing schemas from shared/, permission-aware UI (Can component), table/list pattern, loading/empty/error states, accessibility basics, Tailwind conventions, i18n-ready strings. Comments and docs rules. ESLint + Prettier config snippets. Security coding rules (input validation, output encoding, no secrets, SQL injection via raw queries, file upload checks, rate limiting). Performance rules (select only needed fields, avoid N+1 with include/select, indexes, cache hot reads in Redis with tenant-prefixed keys). Code review checklist.

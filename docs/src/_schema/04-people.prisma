@@ -1,0 +1,1013 @@
+// 04-people: staff and teachers, students, guardians, enrollments and the
+// admission funnel (inquiry -> follow-ups -> application -> student).
+
+enum StaffType {
+  TEACHING
+  NON_TEACHING
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  VISITING
+  INTERN
+}
+
+enum StaffStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+  RETIRED
+}
+
+enum StaffDocumentType {
+  ID_PROOF
+  ADDRESS_PROOF
+  QUALIFICATION
+  EXPERIENCE_LETTER
+  APPOINTMENT_LETTER
+  CONTRACT
+  POLICE_VERIFICATION
+  BANK_PROOF
+  PHOTO
+  OTHER
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE // temporarily not attending (long leave, fee hold)
+  SUSPENDED
+  GRADUATED // completed the final course; alumni
+  TRANSFERRED // left with a transfer certificate
+  DROPPED_OUT
+  EXPELLED
+}
+
+// Reservation / social category used in Indian admissions and scholarship reports.
+enum StudentCategory {
+  GENERAL
+  OBC
+  SC
+  ST
+  EWS
+  OTHER
+}
+
+enum GuardianRelation {
+  FATHER
+  MOTHER
+  GRANDFATHER
+  GRANDMOTHER
+  BROTHER
+  SISTER
+  UNCLE
+  AUNT
+  LEGAL_GUARDIAN
+  OTHER
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PROMOTED // moved to the next course at year end
+  COMPLETED // finished the course / batch
+  DETAINED // repeats the same course next year
+  TRANSFERRED // moved to another batch or campus mid-year
+  WITHDRAWN
+  CANCELLED
+}
+
+enum StudentDocumentType {
+  BIRTH_CERTIFICATE
+  TRANSFER_CERTIFICATE
+  MARKSHEET
+  ID_PROOF
+  ADDRESS_PROOF
+  PHOTO
+  CATEGORY_CERTIFICATE
+  INCOME_CERTIFICATE
+  MEDICAL
+  OTHER
+}
+
+enum StudentNoteType {
+  GENERAL
+  ACADEMIC
+  BEHAVIOUR
+  MEDICAL
+  COUNSELLING
+  FEE
+  ACHIEVEMENT
+}
+
+enum LeadSource {
+  WALK_IN
+  WEBSITE
+  PHONE_CALL
+  WHATSAPP
+  REFERRAL
+  SOCIAL_MEDIA
+  GOOGLE_ADS
+  NEWSPAPER
+  EVENT
+  PARTNER
+  OTHER
+}
+
+enum InquiryStage {
+  NEW
+  CONTACTED
+  FOLLOW_UP
+  VISIT_SCHEDULED
+  VISITED
+  DEMO_SCHEDULED // coaching: free demo class booked
+  DEMO_ATTENDED
+  APPLICATION_STARTED
+  CONVERTED
+  LOST
+  JUNK
+}
+
+enum LeadPriority {
+  HOT
+  WARM
+  COLD
+}
+
+enum FollowUpType {
+  CALL
+  WHATSAPP
+  SMS
+  EMAIL
+  VISIT
+  MEETING
+  DEMO_CLASS
+  NOTE
+}
+
+enum FollowUpOutcome {
+  INTERESTED
+  NOT_INTERESTED
+  NO_RESPONSE
+  CALL_BACK_LATER
+  VISIT_BOOKED
+  DEMO_BOOKED
+  APPLICATION_SHARED
+  CONVERTED
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  DOCUMENTS_PENDING
+  TEST_SCHEDULED
+  INTERVIEW_SCHEDULED
+  APPROVED
+  WAITLISTED
+  REJECTED
+  WITHDRAWN
+  ENROLLED // converted into a Student + Enrollment
+}
+
+enum ApplicationChannel {
+  ONLINE_FORM
+  FRONT_DESK
+  IMPORT
+}
+
+enum ApplicationFeeStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  WAIVED
+  REFUNDED
+}
+
+// How the student came in; needed by UDISE and admission reports.
+enum AdmissionType {
+  NEW
+  RE_ADMISSION
+  TRANSFER_IN
+  INTERNAL_PROGRESSION
+}
+
+// Seat quota of the admission; drives fee rules and government returns.
+enum AdmissionQuota {
+  GENERAL
+  RTE
+  MANAGEMENT
+  STAFF_WARD
+  SPORTS
+  NRI
+  OTHER
+}
+
+enum StudentTransferType {
+  BATCH_CHANGE
+  CAMPUS_TRANSFER
+  COURSE_CHANGE
+}
+
+enum StaffChangeType {
+  STATUS
+  CAMPUS_TRANSFER
+  DESIGNATION
+  DEPARTMENT
+  EMPLOYMENT_TYPE
+}
+
+// Staff department, e.g. Science, Accounts, Administration.
+model Department {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  campusId       String?      @map("campus_id") @db.Uuid // null = organization-wide department
+  name           String       @db.VarChar(100)
+  code           String       @db.VarChar(30)
+  headStaffId    String?      @map("head_staff_id") @db.Uuid
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?      @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  headStaff    Staff?       @relation("DepartmentHead", fields: [headStaffId], references: [id], onDelete: SetNull)
+  staff        Staff[]      @relation("DepartmentStaff")
+
+  @@unique([organizationId, code])
+  @@index([organizationId, campusId, status])
+  @@map("departments")
+}
+
+// Job title, e.g. PGT Mathematics, Accountant, Front Desk Executive.
+model Designation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String       @db.VarChar(100)
+  staffType      StaffType?   @map("staff_type") // null = usable for both
+  level          Int?         @db.SmallInt // seniority ordering, 1 = most senior
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        Staff[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status])
+  @@map("designations")
+}
+
+// Employee profile (teacher or non-teaching). The login lives in User and is linked by userId.
+model Staff {
+  id                    String         @id @default(uuid()) @db.Uuid
+  organizationId        String         @map("organization_id") @db.Uuid
+  campusId              String         @map("campus_id") @db.Uuid // home campus; extra campuses come from UserCampus
+  userId                String?        @unique @map("user_id") @db.Uuid // linked login; null until invited
+  employeeCode          String         @map("employee_code") @db.VarChar(30)
+  staffType             StaffType      @map("staff_type")
+  employmentType        EmploymentType @default(FULL_TIME) @map("employment_type")
+  status                StaffStatus    @default(ACTIVE)
+  firstName             String         @map("first_name") @db.VarChar(80)
+  lastName              String?        @map("last_name") @db.VarChar(80)
+  gender                Gender?
+  dateOfBirth           DateTime?      @map("date_of_birth") @db.Date
+  bloodGroup            BloodGroup?    @map("blood_group")
+  email                 String?        @db.VarChar(255)
+  phone                 String         @db.VarChar(20) // E.164
+  alternatePhone        String?        @map("alternate_phone") @db.VarChar(20)
+  photoFileId           String?        @map("photo_file_id") @db.Uuid
+  departmentId          String?        @map("department_id") @db.Uuid
+  designationId         String?        @map("designation_id") @db.Uuid
+  reportsToId           String?        @map("reports_to_id") @db.Uuid // manager; first approver in the leave chain
+  joiningDate           DateTime       @map("joining_date") @db.Date
+  confirmationDate      DateTime?      @map("confirmation_date") @db.Date // end of probation
+  qualification         String?        @db.VarChar(255) // e.g. M.Sc. Physics, B.Ed.
+  specialization        String?        @db.VarChar(255)
+  experienceYears       Decimal?       @map("experience_years") @db.Decimal(4, 1) // before joining
+  addressLine1          String?        @map("address_line1") @db.VarChar(200)
+  addressLine2          String?        @map("address_line2") @db.VarChar(200)
+  city                  String?        @db.VarChar(100)
+  state                 String?        @db.VarChar(100)
+  postalCode            String?        @map("postal_code") @db.VarChar(20)
+  countryCode           String?        @map("country_code") @db.Char(2)
+  emergencyContactName  String?        @map("emergency_contact_name") @db.VarChar(120)
+  emergencyContactPhone String?        @map("emergency_contact_phone") @db.VarChar(20)
+  bankDetailsEncrypted  String?        @map("bank_details_encrypted") @db.Text // AES-256-GCM ciphertext of { accountName, accountNo, ifsc, bankName }; never returned in list APIs
+  bankAccountLast4      String?        @map("bank_account_last4") @db.VarChar(4) // safe to display
+  taxIdEncrypted        String?        @map("tax_id_encrypted") @db.Text // PAN / TFN / SSN ciphertext
+  nationalIdEncrypted   String?        @map("national_id_encrypted") @db.Text // Aadhaar / Emirates ID ciphertext
+  uan                   String?        @db.VarChar(12) // India PF Universal Account Number (lifetime id of the employee)
+  pfMemberId            String?        @map("pf_member_id") @db.VarChar(30) // PF member id under this establishment
+  esiIpNumber           String?        @map("esi_ip_number") @db.VarChar(20) // ESI insured person number
+  statutoryIdsEncrypted String?        @map("statutory_ids_encrypted") @db.Text // ciphertext of { superFundUsi, superMemberNo, tfn, ssn, molPersonId, iban }
+  noticePeriodDays      Int?           @map("notice_period_days") @db.SmallInt
+  resignationDate       DateTime?      @map("resignation_date") @db.Date
+  exitDate              DateTime?      @map("exit_date") @db.Date
+  exitReason            String?        @map("exit_reason") @db.VarChar(255)
+  anonymizedAt          DateTime?      @map("anonymized_at") @db.Timestamptz(6) // PII overwritten after an approved deletion request; row kept for financial/legal retention
+  retentionUntil        DateTime?      @map("retention_until") @db.Date
+  customFields          Json?          @map("custom_fields") // cached CustomFieldValue rows
+  createdById           String?        @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus       Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  photoFile    FileAsset?   @relation(fields: [photoFileId], references: [id], onDelete: SetNull)
+  department   Department?  @relation("DepartmentStaff", fields: [departmentId], references: [id], onDelete: SetNull)
+  designation  Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  reportsTo    Staff?       @relation("StaffManager", fields: [reportsToId], references: [id], onDelete: SetNull)
+
+  directReports             Staff[]               @relation("StaffManager")
+  headedDepartments         Department[]          @relation("DepartmentHead")
+  documents                 StaffDocument[]
+  subjects                  TeacherSubject[]
+  classTeacherOf            Batch[]
+  batchSubjects             BatchSubjectTeacher[]
+  leaveRequests             LeaveRequest[]        @relation("LeaveRequestStaff")
+  substituteForLeaves       LeaveRequest[]        @relation("LeaveRequestSubstitute")
+  substitutionsAsOriginal   Substitution[]        @relation("SubstitutionOriginalStaff")
+  substitutionsAsSubstitute Substitution[]        @relation("SubstitutionSubstituteStaff")
+  staffAttendances          StaffAttendance[]
+  leaveBalances             LeaveBalance[]
+  timetableEntries          TimetableEntry[]
+  assignedHomework          Homework[]
+  homeworkSubmissions       HomeworkSubmission[]
+  vehiclesAsDriver          Vehicle[]             @relation("VehicleDriver")
+  vehiclesAsAttendant       Vehicle[]             @relation("VehicleAttendant")
+  tripsAsDriver             VehicleTrip[]         @relation("VehicleTripDriver")
+  tripsAsAttendant          VehicleTrip[]         @relation("VehicleTripAttendant")
+  invigilationDuties        ExamSchedule[]
+  bookIssues                BookIssue[]
+  stockTransactions         StockTransaction[]
+  assetAssignments          AssetAssignment[]
+  driverProfile             DriverProfile?
+  wardenOfHostels           Hostel[]
+  staffSalaries             StaffSalary[]
+  payslips                  Payslip[]
+  staffLoanAdvances         StaffLoanAdvance[]
+  payrollAdjustments        PayrollAdjustment[]
+  ptmBookings               PtmBooking[]
+  staffStatusHistories      StaffStatusHistory[]
+  classSessions             ClassSession[]
+  studyMaterials            StudyMaterial[]
+  payments                  Payment[]
+  bookReservations          BookReservation[]
+  staffTaxDeclarations      StaffTaxDeclaration[]
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId, campusId, staffType, status])
+  @@index([organizationId, departmentId])
+  @@index([organizationId, phone])
+  @@index([organizationId, firstName, lastName])
+  // ?q= contains search; needs CREATE EXTENSION pg_trgm in an earlier SQL migration
+  @@index([firstName(ops: raw("gin_trgm_ops")), lastName(ops: raw("gin_trgm_ops")), employeeCode(ops: raw("gin_trgm_ops"))], type: Gin, map: "idx_staff_search_trgm")
+  @@map("staff")
+}
+
+// Document uploaded for a staff member (ID proof, degree, contract).
+model StaffDocument {
+  id                  String            @id @default(uuid()) @db.Uuid
+  organizationId      String            @map("organization_id") @db.Uuid
+  staffId             String            @map("staff_id") @db.Uuid
+  documentType        StaffDocumentType @map("document_type")
+  title               String            @db.VarChar(150)
+  documentNoEncrypted String?           @map("document_no_encrypted") @db.Text // AES-256-GCM ciphertext (Aadhaar, PAN, passport, bank account); never plain
+  documentNoLast4     String?           @map("document_no_last4") @db.VarChar(4) // safe to display
+  fileId              String            @map("file_id") @db.Uuid
+  issuedOn            DateTime?         @map("issued_on") @db.Date
+  expiresOn           DateTime?         @map("expires_on") @db.Date
+  isVerified          Boolean           @default(false) @map("is_verified")
+  verifiedById        String?           @map("verified_by_id") @db.Uuid // User id (audit only, no FK)
+  verifiedAt          DateTime?         @map("verified_at") @db.Timestamptz(6)
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  file         FileAsset    @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, staffId])
+  @@index([organizationId, expiresOn])
+  @@map("staff_documents")
+}
+
+// Subjects a teacher is qualified to teach (used when assigning batches and substitutions).
+model TeacherSubject {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  staffId        String   @map("staff_id") @db.Uuid
+  subjectId      String   @map("subject_id") @db.Uuid
+  isPrimary      Boolean  @default(false) @map("is_primary") // main subject of the teacher
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, staffId, subjectId])
+  @@index([organizationId, subjectId])
+  @@map("teacher_subjects")
+}
+
+// Student master record. Batch membership per year lives in Enrollment.
+model Student {
+  id                    String           @id @default(uuid()) @db.Uuid
+  organizationId        String           @map("organization_id") @db.Uuid
+  campusId              String           @map("campus_id") @db.Uuid
+  userId                String?          @unique @map("user_id") @db.Uuid // linked Student Portal login; optional
+  familyId              String?          @map("family_id") @db.Uuid // household; groups siblings
+  admissionNo           String           @map("admission_no") @db.VarChar(30) // e.g. BF-2027-0142, from NumberSequence
+  rollNo                String?          @map("roll_no") @db.VarChar(20) // copy of the roll number in the current primary enrollment
+  status                StudentStatus    @default(ACTIVE)
+  firstName             String           @map("first_name") @db.VarChar(80)
+  middleName            String?          @map("middle_name") @db.VarChar(80)
+  lastName              String?          @map("last_name") @db.VarChar(80)
+  dateOfBirth           DateTime         @map("date_of_birth") @db.Date
+  gender                Gender
+  bloodGroup            BloodGroup?      @map("blood_group")
+  category              StudentCategory? // optional; asked only where the institute needs it
+  admissionType         AdmissionType    @default(NEW) @map("admission_type")
+  admissionQuota        AdmissionQuota   @default(GENERAL) @map("admission_quota") // RTE / staff ward ... drives fee rules and government returns
+  isMinority            Boolean          @default(false) @map("is_minority")
+  isBpl                 Boolean          @default(false) @map("is_bpl") // below poverty line; used by scholarship criteria
+  penNumber             String?          @map("pen_number") @db.VarChar(20) // UDISE+ Permanent Education Number
+  apaarId               String?          @map("apaar_id") @db.VarChar(20)
+  boardRegistrationNo   String?          @map("board_registration_no") @db.VarChar(40)
+  house                 String?          @db.VarChar(40) // school house for sports and report cards
+  rfidCardNo            String?          @map("rfid_card_no") @db.VarChar(40) // RFID / QR card used for gate attendance
+  religion              String?          @db.VarChar(40)
+  nationality           String?          @db.VarChar(60)
+  motherTongue          String?          @map("mother_tongue") @db.VarChar(40)
+  nationalIdEncrypted   String?          @map("national_id_encrypted") @db.Text // Aadhaar / passport ciphertext (AES-256-GCM)
+  email                 String?          @db.VarChar(255)
+  phone                 String?          @db.VarChar(20)
+  addressLine1          String?          @map("address_line1") @db.VarChar(200)
+  addressLine2          String?          @map("address_line2") @db.VarChar(200)
+  city                  String?          @db.VarChar(100)
+  state                 String?          @db.VarChar(100)
+  postalCode            String?          @map("postal_code") @db.VarChar(20)
+  countryCode           String?          @map("country_code") @db.Char(2)
+  permanentAddress      Json?            @map("permanent_address") // only when different from the current address
+  photoFileId           String?          @map("photo_file_id") @db.Uuid
+  admissionDate         DateTime         @map("admission_date") @db.Date
+  readmittedOn          DateTime?        @map("readmitted_on") @db.Date
+  admittedCourseId      String?          @map("admitted_course_id") @db.Uuid // class at first admission, printed on the TC
+  currentBatchId        String?          @map("current_batch_id") @db.Uuid // denormalised from the active primary enrollment for fast lists
+  previousSchool        String?          @map("previous_school") @db.VarChar(200)
+  previousClass         String?          @map("previous_class") @db.VarChar(60)
+  previousTcNo          String?          @map("previous_tc_no") @db.VarChar(40) // TC number of the previous school
+  medicalNotesEncrypted String?          @map("medical_notes_encrypted") @db.Text // allergies, conditions; AES-256-GCM, decrypted only for users with students.medical.view; never copied into AuditLog
+  statusChangedAt       DateTime?        @map("status_changed_at") @db.Timestamptz(6)
+  leavingDate           DateTime?        @map("leaving_date") @db.Date
+  leavingReason         String?          @map("leaving_reason") @db.VarChar(255)
+  tcNo                  String?          @map("tc_no") @db.VarChar(40) // transfer certificate register number issued by us
+  tcIssuedOn            DateTime?        @map("tc_issued_on") @db.Date
+  tcCertificateId       String?          @unique @map("tc_certificate_id") @db.Uuid // IssuedCertificate that closed the record
+  anonymizedAt          DateTime?        @map("anonymized_at") @db.Timestamptz(6) // PII overwritten after an approved deletion request; row kept for financial/legal retention
+  retentionUntil        DateTime?        @map("retention_until") @db.Date
+  customFields          Json?            @map("custom_fields") // cached CustomFieldValue rows for fast profile reads
+  createdById           String?          @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus         Campus             @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  user           User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  photoFile      FileAsset?         @relation(fields: [photoFileId], references: [id], onDelete: SetNull)
+  currentBatch   Batch?             @relation(fields: [currentBatchId], references: [id], onDelete: SetNull)
+  family         Family?            @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  admittedCourse Course?            @relation(fields: [admittedCourseId], references: [id], onDelete: SetNull)
+  tcCertificate  IssuedCertificate? @relation("StudentTransferCertificate", fields: [tcCertificateId], references: [id], onDelete: SetNull)
+
+  guardians                StudentGuardian[]
+  enrollments              Enrollment[]
+  documents                StudentDocument[]
+  notes                    StudentNote[]
+  statusHistory            StudentStatusHistory[]
+  applications             AdmissionApplication[]    @relation("ApplicationConvertedStudent") // a returning student may have several applications
+  applicationsAsExisting   AdmissionApplication[]    @relation("ApplicationExistingStudent")
+  consentRecords           ConsentRecord[]
+  attendanceRecords        AttendanceRecord[]
+  studentLeaveRequests     StudentLeaveRequest[]
+  homeworkSubmissions      HomeworkSubmission[]
+  examMarks                ExamMark[]
+  reportCards              ReportCard[]
+  studentFeeAssignments    StudentFeeAssignment[]
+  feeInvoices              FeeInvoice[]
+  studentDiscounts         StudentDiscount[]         @relation("StudentDiscountStudent")
+  siblingDiscountsEnabled  StudentDiscount[]         @relation("StudentDiscountSibling") // SIBLING discounts of brothers / sisters justified by this student
+  scholarshipApplications  ScholarshipApplication[]
+  scholarshipAwards        ScholarshipAward[]
+  feeReminderLogs          FeeReminderLog[]
+  paymentOrders            PaymentOrder[]
+  payments                 Payment[]
+  receipts                 Receipt[]
+  refunds                  Refund[]
+  announcementRecipients   AnnouncementRecipient[]
+  messageLogs              MessageLog[]
+  bookIssues               BookIssue[]
+  stockTransactions        StockTransaction[]
+  assetAssignments         AssetAssignment[]
+  transportAssignments     TransportAssignment[]
+  hostelAllocations        HostelAllocation[]
+  hostelAttendances        HostelAttendance[]
+  hostelVisitorLogs        HostelVisitorLog[]
+  issuedCertificates       IssuedCertificate[]
+  certificateRequests      CertificateRequest[]
+  studentRiskScores        StudentRiskScore[]
+  ptmBookings              PtmBooking[]
+  studentTransfers         StudentTransfer[]
+  examReEvaluationRequests ExamReEvaluationRequest[]
+  feeInvoiceAdjustments    FeeInvoiceAdjustment[]
+  scholarshipDisbursements ScholarshipDisbursement[]
+  paymentAllocations       PaymentAllocation[]
+  bookReservations         BookReservation[]
+  transportAttendances     TransportAttendance[]
+  hostelLeaveRequests      HostelLeaveRequest[]
+
+  @@unique([id, organizationId]) // target of composite tenant-safe foreign keys
+  @@unique([organizationId, admissionNo])
+  @@unique([organizationId, rfidCardNo])
+  @@index([organizationId, familyId])
+  @@index([organizationId, admissionQuota])
+  // ?q= contains search; needs CREATE EXTENSION pg_trgm in an earlier SQL migration
+  @@index([firstName(ops: raw("gin_trgm_ops")), lastName(ops: raw("gin_trgm_ops")), admissionNo(ops: raw("gin_trgm_ops"))], type: Gin, map: "idx_students_search_trgm")
+  @@index([organizationId, campusId, status])
+  @@index([organizationId, currentBatchId, status])
+  @@index([organizationId, firstName, lastName])
+  @@index([organizationId, phone])
+  @@index([organizationId, admissionDate])
+  @@map("students")
+}
+
+// Parent or guardian. One row per person per organization; linked to children through StudentGuardian.
+model Guardian {
+  id                  String       @id @default(uuid()) @db.Uuid
+  organizationId      String       @map("organization_id") @db.Uuid
+  userId              String?      @unique @map("user_id") @db.Uuid // linked Parent Portal login
+  familyId            String?      @map("family_id") @db.Uuid // household; one Parent Portal login sees every child of the family
+  firstName           String       @map("first_name") @db.VarChar(80)
+  lastName            String?      @map("last_name") @db.VarChar(80)
+  gender              Gender?
+  email               String?      @db.VarChar(255)
+  phone               String       @db.VarChar(20) // E.164; used to match siblings to the same guardian
+  alternatePhone      String?      @map("alternate_phone") @db.VarChar(20)
+  whatsappPhone       String?      @map("whatsapp_phone") @db.VarChar(20) // when different from phone
+  preferredChannel    Channel      @default(WHATSAPP) @map("preferred_channel")
+  preferredLanguage   String       @default("en") @map("preferred_language") @db.VarChar(10)
+  occupation          String?      @db.VarChar(100)
+  education           String?      @db.VarChar(100)
+  annualIncome        Decimal?     @map("annual_income") @db.Decimal(12, 2) // for scholarship eligibility
+  currency            String?      @db.Char(3) // currency of annualIncome
+  addressLine1        String?      @map("address_line1") @db.VarChar(200)
+  addressLine2        String?      @map("address_line2") @db.VarChar(200)
+  city                String?      @db.VarChar(100)
+  state               String?      @db.VarChar(100)
+  postalCode          String?      @map("postal_code") @db.VarChar(20)
+  countryCode         String?      @map("country_code") @db.Char(2)
+  nationalIdEncrypted String?      @map("national_id_encrypted") @db.Text // ciphertext; used for verifiable parental consent where required
+  status              RecordStatus @default(ACTIVE)
+  anonymizedAt        DateTime?    @map("anonymized_at") @db.Timestamptz(6) // PII overwritten after an approved deletion request
+  customFields        Json?        @map("custom_fields") // cached CustomFieldValue rows
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user                    User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  family                  Family?                  @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  students                StudentGuardian[]
+  consentRecords          ConsentRecord[]
+  studentLeaveRequests    StudentLeaveRequest[]    @relation("StudentLeaveRequestedByGuardian")
+  studentLeavePickups     StudentLeaveRequest[]    @relation("StudentLeavePickupGuardian")
+  feeReminderLogs         FeeReminderLog[]
+  payments                Payment[]
+  whatsAppInboundMessages WhatsAppInboundMessage[]
+  hostelVisitorLogs       HostelVisitorLog[]
+  ptmBookings             PtmBooking[]
+  hostelLeaveRequests     HostelLeaveRequest[]
+
+  @@index([organizationId, phone])
+  @@index([organizationId, email])
+  @@index([organizationId, firstName, lastName])
+  @@index([organizationId, familyId])
+  // ?q= contains search; needs CREATE EXTENSION pg_trgm in an earlier SQL migration
+  @@index([firstName(ops: raw("gin_trgm_ops")), lastName(ops: raw("gin_trgm_ops")), phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "idx_guardians_search_trgm")
+  @@map("guardians")
+}
+
+// Household that groups siblings and their guardians (sibling discount, family statement, one parent login).
+model Family {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  familyCode        String    @map("family_code") @db.VarChar(30)
+  name              String    @db.VarChar(160) // e.g. "Sharma family (Rajesh)"
+  primaryGuardianId String?   @map("primary_guardian_id") @db.Uuid // Guardian id (no FK to avoid a circular dependency)
+  notes             String?   @db.VarChar(500)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  students      Student[]
+  guardians     Guardian[]
+  paymentOrders PaymentOrder[]
+  payments      Payment[]
+
+  @@unique([organizationId, familyCode])
+  @@index([organizationId, name])
+  @@map("families")
+}
+
+// Link between a student and a guardian with the relationship and contact flags.
+model StudentGuardian {
+  id                    String           @id @default(uuid()) @db.Uuid
+  organizationId        String           @map("organization_id") @db.Uuid
+  studentId             String           @map("student_id") @db.Uuid
+  guardianId            String           @map("guardian_id") @db.Uuid
+  relation              GuardianRelation
+  isPrimary             Boolean          @default(false) @map("is_primary") // main contact; one per student: partial unique index in the SQL migration, UNIQUE (organization_id, student_id) WHERE is_primary
+  canPickup             Boolean          @default(true) @map("can_pickup")
+  isEmergencyContact    Boolean          @default(false) @map("is_emergency_contact")
+  isFeePayer            Boolean          @default(false) @map("is_fee_payer") // receives fee reminders and receipts
+  receivesCommunication Boolean          @default(true) @map("receives_communication")
+  hasPortalAccess       Boolean          @default(true) @map("has_portal_access") // false for custody restrictions
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian     Guardian     @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, studentId, guardianId])
+  @@index([organizationId, guardianId])
+  @@map("student_guardians")
+}
+
+// A student's membership of a batch in an academic year (history is kept across years).
+// Ended rows (TRANSFERRED, WITHDRAWN, CANCELLED, soft-deleted) must not block a new row, so the rules live in
+// partial unique indexes in the SQL migration:
+//   uq_enrollment_student_batch_year (organization_id, student_id, batch_id, academic_year_id) WHERE status = 'ACTIVE' AND deleted_at IS NULL
+//   uq_enrollment_batch_roll         (organization_id, batch_id, roll_no) WHERE status = 'ACTIVE' AND deleted_at IS NULL
+//   uq_enrollment_primary            (organization_id, student_id, academic_year_id) WHERE is_primary AND status = 'ACTIVE' AND deleted_at IS NULL
+model Enrollment {
+  id                   String           @id @default(uuid()) @db.Uuid
+  organizationId       String           @map("organization_id") @db.Uuid
+  campusId             String           @map("campus_id") @db.Uuid
+  studentId            String           @map("student_id") @db.Uuid
+  academicYearId       String           @map("academic_year_id") @db.Uuid
+  courseId             String           @map("course_id") @db.Uuid // denormalised from the batch for course-level reports
+  batchId              String           @map("batch_id") @db.Uuid
+  rollNo               String?          @map("roll_no") @db.VarChar(20)
+  status               EnrollmentStatus @default(ACTIVE)
+  isPrimary            Boolean          @default(true) @map("is_primary") // coaching students may join extra batches; one primary per year
+  enrollmentDate       DateTime         @map("enrollment_date") @db.Date
+  endDate              DateTime?        @map("end_date") @db.Date
+  endReason            String?          @map("end_reason") @db.VarChar(255)
+  electiveSubjectIds   String[]         @map("elective_subject_ids") @db.Uuid // chosen elective Subject ids
+  previousEnrollmentId String?          @map("previous_enrollment_id") @db.Uuid // enrollment this one was promoted / transferred from
+  createdById          String?          @map("created_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus                Campus                 @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  student               Student                @relation(fields: [studentId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK: same tenant guaranteed by the database
+  academicYear          AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  course                Course                 @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  batch                 Batch                  @relation(fields: [batchId, organizationId], references: [id, organizationId], onDelete: Restrict) // composite FK
+  previousEnrollment    Enrollment?            @relation("EnrollmentProgression", fields: [previousEnrollmentId], references: [id], onDelete: SetNull)
+  nextEnrollments       Enrollment[]           @relation("EnrollmentProgression")
+  studentFeeAssignments StudentFeeAssignment[]
+
+  @@index([organizationId, studentId, batchId, academicYearId]) // uniqueness of ACTIVE rows: partial unique index (see model comment)
+  @@index([organizationId, batchId, rollNo])
+  @@index([organizationId, batchId, status])
+  @@index([organizationId, studentId, academicYearId])
+  @@index([organizationId, campusId, academicYearId, status])
+  @@index([organizationId, courseId, academicYearId])
+  @@map("enrollments")
+}
+
+// Document uploaded for a student (birth certificate, transfer certificate, marksheet).
+model StudentDocument {
+  id                  String              @id @default(uuid()) @db.Uuid
+  organizationId      String              @map("organization_id") @db.Uuid
+  studentId           String              @map("student_id") @db.Uuid
+  documentType        StudentDocumentType @map("document_type")
+  title               String              @db.VarChar(150)
+  documentNoEncrypted String?             @map("document_no_encrypted") @db.Text // AES-256-GCM ciphertext (Aadhaar, passport); never plain
+  documentNoLast4     String?             @map("document_no_last4") @db.VarChar(4) // safe to display
+  fileId              String              @map("file_id") @db.Uuid
+  issuedOn            DateTime?           @map("issued_on") @db.Date
+  isVerified          Boolean             @default(false) @map("is_verified")
+  verifiedById        String?             @map("verified_by_id") @db.Uuid // User id (audit only, no FK)
+  verifiedAt          DateTime?           @map("verified_at") @db.Timestamptz(6)
+  visibleToParent     Boolean             @default(true) @map("visible_to_parent")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?           @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  file         FileAsset    @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, studentId, documentType])
+  @@map("student_documents")
+}
+
+// Staff remark on a student (academic, behaviour, medical, counselling), optionally shared with parents.
+model StudentNote {
+  id                 String          @id @default(uuid()) @db.Uuid
+  organizationId     String          @map("organization_id") @db.Uuid
+  studentId          String          @map("student_id") @db.Uuid
+  noteType           StudentNoteType @default(GENERAL) @map("note_type")
+  title              String?         @db.VarChar(150)
+  body               String          @db.Text
+  isSharedWithParent Boolean         @default(false) @map("is_shared_with_parent")
+  isPinned           Boolean         @default(false) @map("is_pinned")
+  authorId           String?         @map("author_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  author       User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, studentId, createdAt])
+  @@index([organizationId, noteType, createdAt])
+  @@map("student_notes")
+}
+
+// Every change of Student.status with reason and actor. Append-only: no updatedAt / deletedAt.
+model StudentStatusHistory {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  studentId      String         @map("student_id") @db.Uuid
+  fromStatus     StudentStatus? @map("from_status") // null for the first row written at admission
+  toStatus       StudentStatus  @map("to_status")
+  reason         String?        @db.VarChar(500)
+  effectiveDate  DateTime       @map("effective_date") @db.Date
+  changedById    String?        @map("changed_by_id") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  changedBy    User?        @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, studentId, createdAt])
+  @@index([organizationId, toStatus, effectiveDate])
+  @@map("student_status_histories")
+}
+
+// Every status, campus, department or designation change of a staff member. Append-only: no updatedAt / deletedAt.
+model StaffStatusHistory {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  staffId        String          @map("staff_id") @db.Uuid
+  changeType     StaffChangeType @map("change_type")
+  fromValue      String?         @map("from_value") @db.VarChar(100) // status / designation / department name before
+  toValue        String          @map("to_value") @db.VarChar(100)
+  fromCampusId   String?         @map("from_campus_id") @db.Uuid // Campus id (no FK); set for CAMPUS_TRANSFER
+  toCampusId     String?         @map("to_campus_id") @db.Uuid
+  effectiveDate  DateTime        @map("effective_date") @db.Date
+  reason         String?         @db.VarChar(500)
+  changedById    String?         @map("changed_by_id") @db.Uuid // User id (audit only, no FK)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, staffId, effectiveDate])
+  @@index([organizationId, changeType, effectiveDate])
+  @@map("staff_status_histories")
+}
+
+// Request to move a student to another batch, course or campus, with approval and fee treatment.
+model StudentTransfer {
+  id               String              @id @default(uuid()) @db.Uuid
+  organizationId   String              @map("organization_id") @db.Uuid
+  studentId        String              @map("student_id") @db.Uuid
+  transferType     StudentTransferType @map("transfer_type")
+  fromCampusId     String              @map("from_campus_id") @db.Uuid
+  toCampusId       String              @map("to_campus_id") @db.Uuid
+  fromBatchId      String              @map("from_batch_id") @db.Uuid
+  toBatchId        String              @map("to_batch_id") @db.Uuid
+  fromEnrollmentId String?             @map("from_enrollment_id") @db.Uuid // Enrollment id that ends (no FK)
+  toEnrollmentId   String?             @map("to_enrollment_id") @db.Uuid // Enrollment id created on approval (no FK)
+  effectiveDate    DateTime            @map("effective_date") @db.Date
+  reason           String              @db.VarChar(500)
+  feeTreatment     Json?               @map("fee_treatment") // { carryDues, newFeeStructureId, endTransport }
+  status           ApprovalStatus      @default(PENDING)
+  requestedById    String?             @map("requested_by_id") @db.Uuid // User id (audit only, no FK)
+  approvedById     String?             @map("approved_by_id") @db.Uuid
+  approvedAt       DateTime?           @map("approved_at") @db.Timestamptz(6)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  fromCampus   Campus       @relation("StudentTransferFromCampus", fields: [fromCampusId], references: [id], onDelete: Restrict)
+  toCampus     Campus       @relation("StudentTransferToCampus", fields: [toCampusId], references: [id], onDelete: Restrict)
+  fromBatch    Batch        @relation("StudentTransferFromBatch", fields: [fromBatchId], references: [id], onDelete: Restrict)
+  toBatch      Batch        @relation("StudentTransferToBatch", fields: [toBatchId], references: [id], onDelete: Restrict)
+  approvedBy   User?        @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, studentId, effectiveDate])
+  @@index([organizationId, toCampusId, status])
+  @@index([organizationId, fromCampusId, status])
+  @@map("student_transfers")
+}
+
+// Admission lead captured from walk-in, website form, phone or WhatsApp.
+model AdmissionInquiry {
+  id               String            @id @default(uuid()) @db.Uuid
+  organizationId   String            @map("organization_id") @db.Uuid
+  campusId         String            @map("campus_id") @db.Uuid
+  inquiryNo        String            @map("inquiry_no") @db.VarChar(30)
+  academicYearId   String?           @map("academic_year_id") @db.Uuid // session the lead wants to join
+  courseId         String?           @map("course_id") @db.Uuid // course of interest
+  studentFirstName String            @map("student_first_name") @db.VarChar(80)
+  studentLastName  String?           @map("student_last_name") @db.VarChar(80)
+  dateOfBirth      DateTime?         @map("date_of_birth") @db.Date
+  gender           Gender?
+  guardianName     String            @map("guardian_name") @db.VarChar(160)
+  guardianRelation GuardianRelation? @map("guardian_relation")
+  phone            String            @db.VarChar(20)
+  alternatePhone   String?           @map("alternate_phone") @db.VarChar(20)
+  email            String?           @db.VarChar(255)
+  city             String?           @db.VarChar(100)
+  address          String?           @db.VarChar(500)
+  previousSchool   String?           @map("previous_school") @db.VarChar(200)
+  source           LeadSource        @default(WALK_IN)
+  sourceDetail     String?           @map("source_detail") @db.VarChar(200) // campaign name, referrer name
+  utm              Json? // utm_source / utm_medium / utm_campaign from the website form
+  stage            InquiryStage      @default(NEW)
+  priority         LeadPriority      @default(WARM)
+  assignedToId     String?           @map("assigned_to_id") @db.Uuid // counsellor (User) who owns the lead
+  lastContactedAt  DateTime?         @map("last_contacted_at") @db.Timestamptz(6)
+  nextFollowUpAt   DateTime?         @map("next_follow_up_at") @db.Timestamptz(6) // denormalised from the latest follow-up
+  lostReason       String?           @map("lost_reason") @db.VarChar(255)
+  notes            String?           @db.Text
+  demoBatchId      String?           @map("demo_batch_id") @db.Uuid // coaching: batch of the free demo class
+  demoAt           DateTime?         @map("demo_at") @db.Timestamptz(6)
+  demoAttended     Boolean?          @map("demo_attended")
+  consentToContact Boolean           @default(false) @map("consent_to_contact") // never pre-ticked: needs a clear affirmative action (DPDP / GDPR / TRAI)
+  consentAt        DateTime?         @map("consent_at") @db.Timestamptz(6)
+  consentSource    String?           @map("consent_source") @db.VarChar(40) // WEB_FORM | FRONT_DESK | WHATSAPP_OPT_IN
+  consentIp        String?           @map("consent_ip") @db.VarChar(45)
+  customFields     Json?             @map("custom_fields") // cached CustomFieldValue rows
+  createdById      String?           @map("created_by_id") @db.Uuid // User id (audit only, no FK); null for website leads
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus         Campus                 @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  academicYear   AcademicYear?          @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  course         Course?                @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  assignedTo     User?                  @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  demoBatch      Batch?                 @relation(fields: [demoBatchId], references: [id], onDelete: SetNull)
+  followUps      InquiryFollowUp[]
+  applications   AdmissionApplication[]
+  consentRecords ConsentRecord[]
+
+  @@unique([organizationId, inquiryNo])
+  @@index([organizationId, campusId, stage, createdAt])
+  @@index([organizationId, assignedToId, nextFollowUpAt])
+  @@index([organizationId, phone])
+  @@index([organizationId, source, createdAt])
+  @@map("admission_inquiries")
+}
+
+// A planned or completed contact with an admission lead.
+model InquiryFollowUp {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  inquiryId      String           @map("inquiry_id") @db.Uuid
+  followUpType   FollowUpType     @map("follow_up_type")
+  scheduledAt    DateTime?        @map("scheduled_at") @db.Timestamptz(6)
+  completedAt    DateTime?        @map("completed_at") @db.Timestamptz(6) // null = still pending
+  outcome        FollowUpOutcome?
+  stageAfter     InquiryStage?    @map("stage_after") // stage the inquiry moved to after this contact
+  notes          String?          @db.Text
+  doneById       String?          @map("done_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inquiry      AdmissionInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  doneBy       User?            @relation(fields: [doneById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, inquiryId, createdAt])
+  @@index([organizationId, doneById, scheduledAt])
+  @@index([organizationId, completedAt, scheduledAt]) // today's pending follow-ups
+  @@map("inquiry_follow_ups")
+}
+
+// Admission form submitted online or at the front desk; approved applications become students.
+model AdmissionApplication {
+  id                      String               @id @default(uuid()) @db.Uuid
+  organizationId          String               @map("organization_id") @db.Uuid
+  campusId                String               @map("campus_id") @db.Uuid
+  applicationNo           String               @map("application_no") @db.VarChar(30)
+  inquiryId               String?              @map("inquiry_id") @db.Uuid
+  academicYearId          String               @map("academic_year_id") @db.Uuid
+  courseId                String               @map("course_id") @db.Uuid
+  preferredBatchId        String?              @map("preferred_batch_id") @db.Uuid
+  status                  ApplicationStatus    @default(DRAFT)
+  admissionType           AdmissionType        @default(NEW) @map("admission_type")
+  existingStudentId       String?              @map("existing_student_id") @db.Uuid // returning student chosen at the front desk (re-admission / progression)
+  siblingStudentId        String?              @map("sibling_student_id") @db.Uuid // Student id of a sibling already studying here (priority + sibling discount); no FK
+  submittedVia            ApplicationChannel   @default(FRONT_DESK) @map("submitted_via")
+  studentFirstName        String               @map("student_first_name") @db.VarChar(80)
+  studentLastName         String?              @map("student_last_name") @db.VarChar(80)
+  dateOfBirth             DateTime?            @map("date_of_birth") @db.Date
+  gender                  Gender?
+  guardianName            String               @map("guardian_name") @db.VarChar(160)
+  phone                   String               @db.VarChar(20)
+  email                   String?              @db.VarChar(255)
+  // national id / bank numbers must be stripped or field-level encrypted before save
+  formData                Json                 @map("form_data") // full form: student, guardians, address, previous school, custom fields
+  consentAt               DateTime?            @map("consent_at") @db.Timestamptz(6) // guardian consent for the child's data at application time
+  consentSource           String?              @map("consent_source") @db.VarChar(40) // WEB_FORM | FRONT_DESK | WHATSAPP_OPT_IN
+  consentIp               String?              @map("consent_ip") @db.VarChar(45)
+  applicationFeeAmount    Decimal              @default(0) @map("application_fee_amount") @db.Decimal(12, 2)
+  currency                String               @db.Char(3)
+  applicationFeeStatus    ApplicationFeeStatus @default(NOT_REQUIRED) @map("application_fee_status")
+  applicationFeePaidAt    DateTime?            @map("application_fee_paid_at") @db.Timestamptz(6)
+  applicationFeePaymentId String?              @unique @map("application_fee_payment_id") @db.Uuid // Payment (purpose APPLICATION_FEE) that settled the fee: receipt, day book and DayClose
+  applicationFeeRef       String?              @map("application_fee_ref") @db.VarChar(100) // legacy receipt no.; imports only
+  submittedAt             DateTime?            @map("submitted_at") @db.Timestamptz(6)
+  entranceTestAt          DateTime?            @map("entrance_test_at") @db.Timestamptz(6)
+  entranceTestVenue       String?              @map("entrance_test_venue") @db.VarChar(150)
+  entranceTestMaxScore    Decimal?             @map("entrance_test_max_score") @db.Decimal(6, 2)
+  entranceTestScore       Decimal?             @map("entrance_test_score") @db.Decimal(6, 2)
+  interviewAt             DateTime?            @map("interview_at") @db.Timestamptz(6)
+  reviewedById            String?              @map("reviewed_by_id") @db.Uuid
+  reviewedAt              DateTime?            @map("reviewed_at") @db.Timestamptz(6)
+  decisionRemarks         String?              @map("decision_remarks") @db.VarChar(500)
+  convertedStudentId      String?              @map("converted_student_id") @db.Uuid // Student created from (or re-admitted by) this application; not unique: a student may return
+  convertedAt             DateTime?            @map("converted_at") @db.Timestamptz(6)
+  createdById             String?              @map("created_by_id") @db.Uuid // User id (audit only, no FK); null for online forms
+  createdAt               DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime?            @map("deleted_at") @db.Timestamptz(6)
+
+  organization          Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campus                Campus                         @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  inquiry               AdmissionInquiry?              @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  academicYear          AcademicYear                   @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  course                Course                         @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  preferredBatch        Batch?                         @relation(fields: [preferredBatchId], references: [id], onDelete: SetNull)
+  reviewedBy            User?                          @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+  convertedStudent      Student?                       @relation("ApplicationConvertedStudent", fields: [convertedStudentId], references: [id], onDelete: SetNull)
+  existingStudent       Student?                       @relation("ApplicationExistingStudent", fields: [existingStudentId], references: [id], onDelete: SetNull)
+  applicationFeePayment Payment?                       @relation("ApplicationFeePayment", fields: [applicationFeePaymentId], references: [id], onDelete: SetNull)
+  documents             AdmissionApplicationDocument[]
+  payments              Payment[]                      @relation("PaymentAdmissionApplication") // every APPLICATION_FEE payment attempt of this application
+  paymentOrders         PaymentOrder[]
+  receipts              Receipt[]
+
+  @@unique([organizationId, applicationNo])
+  @@index([organizationId, convertedStudentId])
+  @@index([organizationId, campusId, status, createdAt])
+  @@index([organizationId, academicYearId, courseId, status])
+  @@index([organizationId, phone])
+  @@map("admission_applications")
+}
+
+// Document attached to an admission application; copied to StudentDocument on conversion.
+model AdmissionApplicationDocument {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  applicationId  String              @map("application_id") @db.Uuid
+  documentType   StudentDocumentType @map("document_type")
+  title          String              @db.VarChar(150)
+  fileId         String              @map("file_id") @db.Uuid
+  isVerified     Boolean             @default(false) @map("is_verified")
+  verifiedById   String?             @map("verified_by_id") @db.Uuid // User id (audit only, no FK)
+  verifiedAt     DateTime?           @map("verified_at") @db.Timestamptz(6)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application  AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  file         FileAsset            @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, applicationId])
+  @@map("admission_application_documents")
+}

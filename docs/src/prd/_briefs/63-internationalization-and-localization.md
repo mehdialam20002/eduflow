@@ -1,0 +1,9 @@
+# Brief for 63-internationalization-and-localization.md
+
+Title: Internationalization and Localization
+Minimum words: 3400
+Web research needed: no
+
+## What this chapter must cover (every item, fully)
+
+Everything needed to run in India, UAE, USA and Australia from one codebase. Country pack concept: a table per country with currency, currency format (lakh/crore grouping for India), timezone(s), date format, week start, phone format and validation, address format and postal code rules, languages, academic year pattern (India Apr–Mar, UAE Sep–Jun or Apr–Mar for Indian-curriculum schools, USA Aug–Jun, Australia Jan–Dec with four terms), grading systems (CBSE/ICSE/state percentages and grades, US GPA letter grades, Australian A–E and ATAR context), ID documents, tax (India GST 18% with GSTIN, SAC and CGST/SGST/IGST split; UAE VAT 5% with TRN; Australia GST 10% with ABN; US sales tax via Stripe Tax), invoice and receipt legal wording, payment methods and gateways (UPI, cards, netbanking, Razorpay; Stripe cards, ACH, BECS direct debit, Apple/Google Pay), messaging channel preference (WhatsApp vs email/SMS), holidays calendar, terminology differences (class/grade/year, section/homeroom, fees/tuition). Technical design: currency and money handling (store minor-unit-safe Decimal + currency, never convert stored amounts, display with Intl.NumberFormat), timezone handling (store UTC, organization and campus timezone, date-only fields, scheduling jobs in tenant time, DST in USA/Australia), i18n framework for Next.js (message catalogs, ICU plurals, Hindi first, RTL readiness for Arabic), translating templates for notifications, locale negotiation, user-level language preference, number/date formatting helpers in shared/, multi-currency reporting for groups, per-country feature flags, data residency routing. Localization workflow and QA checklist. Requirements table I18N-01 onwards with phase.

@@ -1,0 +1,236 @@
+[
+ {
+  "file": "01-how-to-use-this-blueprint.md",
+  "title": "How to Use This Blueprint",
+  "words": 2200,
+  "research": false
+ },
+ {
+  "file": "02-working-with-claude-code.md",
+  "title": "Working with Claude Code",
+  "words": 3200,
+  "research": false
+ },
+ {
+  "file": "03-roadmap-overview-and-weekly-milestones.md",
+  "title": "60-Day Roadmap Overview and Weekly Milestones",
+  "words": 3000,
+  "research": false
+ },
+ {
+  "file": "04-daily-plan-days-1-to-14.md",
+  "title": "Daily Plan: Days 1 to 14",
+  "words": 4200,
+  "research": false
+ },
+ {
+  "file": "05-daily-plan-days-15-to-28.md",
+  "title": "Daily Plan: Days 15 to 28",
+  "words": 4200,
+  "research": false
+ },
+ {
+  "file": "06-daily-plan-days-29-to-42.md",
+  "title": "Daily Plan: Days 29 to 42",
+  "words": 4200,
+  "research": false
+ },
+ {
+  "file": "07-daily-plan-days-43-to-60.md",
+  "title": "Daily Plan: Days 43 to 60",
+  "words": 4800,
+  "research": false
+ },
+ {
+  "file": "08-after-day-60-the-road-to-v2.md",
+  "title": "After Day 60: The Road to V2.0",
+  "words": 2800,
+  "research": false
+ },
+ {
+  "file": "10-prompts-project-foundation.md",
+  "title": "Prompts: Project Foundation",
+  "words": 5000,
+  "kind": "prompts"
+ },
+ {
+  "file": "11-prompts-core-modules-phase-1.md",
+  "title": "Prompts: Core Modules (Phase 1)",
+  "words": 5500,
+  "kind": "prompts"
+ },
+ {
+  "file": "12-prompts-finance-and-communication.md",
+  "title": "Prompts: Finance and Communication",
+  "words": 5000,
+  "kind": "prompts"
+ },
+ {
+  "file": "13-prompts-phase-2-to-4-modules.md",
+  "title": "Prompts: Phase 2 to 4 Modules",
+  "words": 6500,
+  "kind": "prompts"
+ },
+ {
+  "file": "14-prompts-quality-security-and-devops.md",
+  "title": "Prompts: Quality, Security and DevOps",
+  "words": 5000,
+  "kind": "prompts"
+ },
+ {
+  "file": "20-folder-structure.md",
+  "title": "Folder Structure",
+  "words": 3000,
+  "research": false
+ },
+ {
+  "file": "21-coding-standards.md",
+  "title": "Coding Standards",
+  "words": 3800,
+  "research": false
+ },
+ {
+  "file": "22-git-workflow.md",
+  "title": "Git Workflow: Branches, Commits and Pull Requests",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "23-local-development-setup.md",
+  "title": "Local Development Setup",
+  "words": 2400,
+  "research": false
+ },
+ {
+  "file": "24-testing-strategy.md",
+  "title": "Testing Strategy for a Solo Founder",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "30-environments-and-configuration.md",
+  "title": "Environments and Configuration",
+  "words": 2200,
+  "research": false
+ },
+ {
+  "file": "31-docker-and-ci-cd.md",
+  "title": "Docker and CI/CD",
+  "words": 3200,
+  "research": false
+ },
+ {
+  "file": "32-deploy-on-vercel-and-railway.md",
+  "title": "Deploy on Vercel and Railway",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "33-deploy-on-aws.md",
+  "title": "Deploy on AWS",
+  "words": 3000,
+  "research": false
+ },
+ {
+  "file": "34-monitoring-backups-and-incident-response.md",
+  "title": "Monitoring, Backups and Incident Response",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "35-launch-checklist-and-go-live-runbook.md",
+  "title": "Launch Checklist and Go-Live Runbook",
+  "words": 2400,
+  "research": false
+ },
+ {
+  "file": "40-sales-foundation-and-lead-generation.md",
+  "title": "Sales Foundation and Lead Generation",
+  "words": 2800,
+  "research": false
+ },
+ {
+  "file": "41-cold-call-scripts.md",
+  "title": "Cold Call Scripts",
+  "words": 3400,
+  "research": false
+ },
+ {
+  "file": "42-whatsapp-and-email-templates.md",
+  "title": "WhatsApp and Email Templates",
+  "words": 3400,
+  "research": false
+ },
+ {
+  "file": "43-demo-script.md",
+  "title": "Demo Script",
+  "words": 3200,
+  "research": false
+ },
+ {
+  "file": "44-objection-handling-and-closing.md",
+  "title": "Objection Handling and Closing",
+  "words": 3400,
+  "research": false
+ },
+ {
+  "file": "45-onboarding-and-customer-success-playbook.md",
+  "title": "Onboarding and Customer Success Playbook",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "50-scaling-overview-and-architecture-evolution.md",
+  "title": "Scaling Overview and Architecture Evolution",
+  "words": 3000,
+  "research": false
+ },
+ {
+  "file": "51-stage-1-the-first-100-customers.md",
+  "title": "Stage 1: The First 100 Customers",
+  "words": 2400,
+  "research": false
+ },
+ {
+  "file": "52-stage-2-growing-to-500-customers.md",
+  "title": "Stage 2: Growing to 500 Customers",
+  "words": 2400,
+  "research": false
+ },
+ {
+  "file": "53-stage-3-growing-to-1000-customers.md",
+  "title": "Stage 3: Growing to 1,000 Customers",
+  "words": 2400,
+  "research": false
+ },
+ {
+  "file": "54-stage-4-growing-to-10000-customers.md",
+  "title": "Stage 4: Growing to 10,000 Customers",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "60-founder-operating-system.md",
+  "title": "Founder Operating System",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "61-company-setup-legal-and-finance.md",
+  "title": "Company Setup, Legal and Finance Basics",
+  "words": 2600,
+  "research": false
+ },
+ {
+  "file": "90-appendix-environment-variables-and-commands.md",
+  "title": "Environment Variables and Command Reference",
+  "words": 1800,
+  "research": false
+ },
+ {
+  "file": "91-appendix-checklists.md",
+  "title": "Checklists",
+  "words": 1800,
+  "research": false
+ }
+]
