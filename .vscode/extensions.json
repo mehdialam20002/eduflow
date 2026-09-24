@@ -1,0 +1,20 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "Prisma.prisma",
+    "bradlc.vscode-tailwindcss",
+    "anthropic.claude-code",
+    "EditorConfig.EditorConfig",
+    "mikestead.dotenv",
+    "usernamehw.errorlens",
+    "ms-playwright.playwright",
+    "GitHub.vscode-pull-request-github",
+    "yzhang.markdown-all-in-one"
+  ],
+  "unwantedRecommendations": [
+    "hookyqr.beautify",
+    "dbaeumer.jshint",
+    "ms-vscode.vscode-typescript-tslint-plugin"
+  ]
+}

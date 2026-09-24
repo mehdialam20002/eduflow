@@ -1,0 +1,74 @@
+# Local services for EduFlow.
+#
+# Docker is OPTIONAL on this machine. A PostgreSQL 18 service is already installed and
+# listens on port 5432, so this file maps its own Postgres to 5433 and the two databases
+# can run side by side. Redis and Mailpit are not installed anywhere, so they arrive only
+# with this file. The API and the web app are never containerised for local work: watch
+# mode is faster outside Docker, so you still start them with "npm run dev".
+#
+# Start:  npm run services:up      (docker compose up -d --wait)
+# Stop:   npm run services:down    (docker compose stop)
+# Wipe:   docker compose down -v   (deletes the database, the queues and the inbox)
+#
+# Without Docker: keep DATABASE_URL on port 5432 (the installed service), leave REDIS_URL
+# empty, and the app runs with queues disabled. "npm run doctor" tells you what is missing.
+
+name: eduflow
+
+services:
+  postgres:
+    # Same major version as the PostgreSQL service installed on this machine, so a dump
+    # taken from one restores into the other without a version mismatch.
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eduflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eduflow_local_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-eduflow_dev}
+      TZ: UTC
+    ports:
+      # Host 5433 is free; 5432 belongs to the installed Windows service.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # noeviction is required by BullMQ: a silently dropped key is a lost job.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    # Fake inbox at http://localhost:8025. Nothing ever leaves this machine.
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "500"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

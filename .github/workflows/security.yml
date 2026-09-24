@@ -1,0 +1,105 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Monday 06:00 UTC, so a new advisory is seen at the start of the week.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Runtime dependencies have no moderate or worse advisory
+        run: npm audit --omit=dev --audit-level=moderate
+
+      # A build-time advisory cannot reach a user, so it warns instead of blocking.
+      - name: Development dependencies (report only)
+        continue-on-error: true
+        run: npm audit --audit-level=moderate
+
+  dependency-review:
+    name: dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          comment-summary-in-pr: never
+
+  secret-scan:
+    name: secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No environment file is tracked by Git
+        run: |
+          tracked=$(git ls-files | grep -E '(^|/)\.env($|\.)' || true)
+          if [ -n "$tracked" ]; then
+            echo "::error::An environment file is tracked by Git."
+            echo "$tracked"
+            exit 1
+          fi
+
+      - name: No secret is assigned to a literal in source code
+        run: |
+          files=$(git ls-files 'server/src' 'client/src' 'shared/src' 'scripts')
+          if [ -z "$files" ]; then
+            echo "No source files to scan yet."
+            exit 0
+          fi
+          key='(SECRET|API_KEY|APIKEY|PASSWORD|PRIVATE_KEY|ACCESS_TOKEN)[A-Z_]*'
+          val='[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']{8,}'
+          hits=$(echo "$files" | xargs -r grep -nEI "$key$val" || true)
+          if [ -n "$hits" ]; then
+            echo "::error::A secret looks hard-coded. Read it through the env module."
+            echo "$hits"
+            exit 1
+          fi
+
+      - name: No live provider credential anywhere in the repository
+        run: |
+          files=$(git ls-files | grep -vE '^(docs/|package-lock\.json$)' || true)
+          if [ -z "$files" ]; then
+            echo "Nothing to scan."
+            exit 0
+          fi
+          hits=$(echo "$files" | xargs -r grep -nEI \
+            -e 'sk_live_[0-9a-zA-Z]{8,}' \
+            -e 'rzp_live_[0-9a-zA-Z]{8,}' \
+            -e 'AKIA[0-9A-Z]{16}' \
+            -e 'ghp_[0-9a-zA-Z]{20,}' \
+            -e 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' \
+            || true)
+          if [ -n "$hits" ]; then
+            echo "::error::A live credential or private key was found."
+            echo "$hits"
+            exit 1
+          fi

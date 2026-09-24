@@ -1,0 +1,195 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: npm ci
+
+      - name: Generated constants match the specifications
+        run: |
+          npm run gen:constants
+          if ! git diff --quiet -- shared/src/generated; then
+            echo "::error::shared/src/generated is out of date."
+            echo "Run 'npm run gen:constants' and commit the result."
+            git diff --stat -- shared/src/generated
+            exit 1
+          fi
+
+      - name: docs/schema matches server/prisma/schema
+        run: npm run check:schema-sync
+
+      - name: Prisma schema is valid and the client generates
+        working-directory: server
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+        run: |
+          npx prisma validate --schema ./prisma/schema
+          npx prisma generate --schema ./prisma/schema
+
+      - run: npm run lint
+
+      - run: npm run format:check
+
+      - run: npm run typecheck
+
+      - name: Applied migrations are never edited
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-status "origin/$BASE_REF...HEAD" \
+            -- 'server/prisma/migrations/*' \
+            | grep -v '^A' | grep -v 'migration_lock' || true)
+          if [ -n "$changed" ]; then
+            echo "::error::Existing migration files were changed or deleted."
+            echo "$changed"
+            exit 1
+          fi
+
+      - name: Pull request title is a Conventional Commit
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|perf|refactor|test|docs|build|ci|chore|style|revert)'
+          pattern="$pattern"'(\([a-z0-9-]+\))?!?: .{1,72}$'
+          if ! printf '%s' "$PR_TITLE" | grep -Eq "$pattern"; then
+            echo "::error::Title must look like 'feat(fees): add invoice generation'."
+            echo "Got: $PR_TITLE"
+            exit 1
+          fi
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: eduflow
+          POSTGRES_PASSWORD: eduflow
+          POSTGRES_DB: eduflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eduflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    # These names come from the Zod schema in server/src/config/env.ts. Only DATABASE_URL and
+    # the two JWT secrets have no default there; the rest pin CI to known values.
+    env:
+      NODE_ENV: test
+      APP_ENV: test
+      TZ: UTC
+      LOG_LEVEL: error
+      DATABASE_URL: postgresql://eduflow:eduflow@localhost:5432/eduflow_test?schema=public
+      DATABASE_ADMIN_URL: postgresql://eduflow:eduflow@localhost:5432/eduflow_test?schema=public
+      APP_URL: http://localhost:3000
+      API_URL: http://localhost:4000
+      ROOT_DOMAIN: localhost
+      TRUST_PROXY: "0"
+      QUEUE_PREFIX: eduflow-ci
+      JWT_ACCESS_SECRET: ci-only-access-secret-0123456789abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-0123456789abcdef
+      REFRESH_COOKIE_NAME: ef_rt_ci
+      COOKIE_SECURE: "false"
+      FIELD_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      SEED_DEMO_PASSWORD: EduFlow@CI123
+      DEFAULT_COUNTRY: IN
+      DEFAULT_CURRENCY: INR
+      DEFAULT_TIMEZONE: Asia/Kolkata
+      MAIL_TRANSPORT: smtp
+      MAIL_FROM: EduFlow CI <no-reply@eduflow.example>
+      MESSAGING_MODE: log
+      S3_BUCKET_UPLOADS: eduflow-ci-uploads
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_ENV: local
+      NEXT_PUBLIC_ROOT_DOMAIN: localhost
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate the Prisma client
+        working-directory: server
+        run: npx prisma generate --schema ./prisma/schema
+
+      # REDIS_URL is deliberately unset here: the suite must pass with queues disabled.
+      - name: Create the test schema
+        working-directory: server
+        run: |
+          if [ -d prisma/migrations ]; then
+            npx prisma migrate deploy --schema ./prisma/schema
+          else
+            npx prisma db push --schema ./prisma/schema --skip-generate --accept-data-loss
+          fi
+
+      - name: Unit and integration tests
+        run: npm run test
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_ENV: local
+      NEXT_PUBLIC_ROOT_DOMAIN: localhost
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate the Prisma client
+        working-directory: server
+        run: npx prisma generate --schema ./prisma/schema
+
+      - name: Build shared, server and client
+        run: npm run build

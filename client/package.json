@@ -1,0 +1,41 @@
+{
+  "name": "@eduflow/client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EduFlow web app: Next.js App Router client for staff, parents and students.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@eduflow/shared": "*",
+    "@hookform/resolvers": "^5.9.1",
+    "@tanstack/react-query": "^5.103.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.47.0",
+    "next": "^15.5.26",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-hook-form": "^7.88.0",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.13.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  },
+  "optionalDependencies": {
+    "@next/swc-wasm-nodejs": "^15.5.26"
+  }
+}

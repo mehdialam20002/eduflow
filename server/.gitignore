@@ -1,0 +1,7 @@
+dist/
+coverage/
+node_modules/
+.env
+.env.*
+# The example file carries no secret and must stay in the repository.
+!.env.example

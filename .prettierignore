@@ -1,0 +1,24 @@
+# Build output and installed packages
+node_modules/
+dist/
+.next/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# The documentation pipeline owns docs/. Reformatting it would hide real changes.
+docs/
+
+# Generated or machine-owned files
+package-lock.json
+*.prisma
+server/prisma/migrations/
+shared/src/generated/
+client/src/components/ui/
+
+# Binaries
+*.pdf
+*.png
+*.ico
+*.xlsx

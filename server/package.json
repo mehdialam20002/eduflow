@@ -1,0 +1,61 @@
+{
+  "name": "@eduflow/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=../.env src/server.ts",
+    "dev:worker": "node --watch --env-file-if-exists=../.env src/worker.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint src prisma --max-warnings 0",
+    "test": "node --test --import ./src/test/setup.ts",
+    "test:watch": "node --test --watch --import ./src/test/setup.ts",
+    "db:generate": "prisma generate --schema ./prisma/schema",
+    "db:migrate": "prisma migrate dev --schema ./prisma/schema",
+    "db:deploy": "prisma migrate deploy --schema ./prisma/schema",
+    "db:seed": "node --env-file-if-exists=../.env prisma/seed.ts",
+    "db:studio": "prisma studio --schema ./prisma/schema",
+    "postinstall": "prisma generate --schema ./prisma/schema || exit 0",
+    "seed": "node --env-file-if-exists=../.env prisma/seed.ts"
+  },
+  "prisma": {
+    "schema": "prisma/schema",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@eduflow/shared": "*",
+    "@prisma/client": "^6.16.0",
+    "bcryptjs": "^3.0.2",
+    "bullmq": "^5.56.0",
+    "compression": "^1.7.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^24.0.0",
+    "@types/supertest": "^6.0.2",
+    "pino-pretty": "^13.0.0",
+    "prisma": "^6.16.0",
+    "supertest": "^7.0.0",
+    "typescript": "^5.7.0"
+  }
+}

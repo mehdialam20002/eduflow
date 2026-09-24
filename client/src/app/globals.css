@@ -1,0 +1,189 @@
+@import 'tailwindcss';
+
+/* Dark mode is driven by a class on <html>, so a user choice can beat the
+   operating system setting. The media query below is only the first guess. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Colour tokens are HSL triples, not finished colours. One tenant colour can
+   then replace one variable without touching a single component. */
+:root {
+  --primary: 221 83% 53%;
+  --primary-hover: 224 76% 48%;
+  --primary-soft: 214 100% 97%;
+  --primary-foreground: 0 0% 100%;
+
+  --success: 142 76% 36%;
+  --success-text: 142 72% 29%;
+  --success-soft: 138 76% 97%;
+  --warning: 32 95% 44%;
+  --warning-text: 26 90% 37%;
+  --warning-soft: 48 100% 96%;
+  --danger: 0 72% 51%;
+  --danger-text: 0 74% 42%;
+  --danger-soft: 0 86% 97%;
+  --danger-foreground: 0 0% 100%;
+  --info-soft: 214 100% 97%;
+  --neutral-soft: 210 40% 96%;
+
+  --ink: 222 47% 11%;
+  --ink-muted: 215 25% 27%;
+  --ink-subtle: 215 16% 47%;
+  --line: 214 32% 91%;
+  --surface: 210 40% 98%;
+  --surface-alt: 210 40% 96%;
+  --surface-raised: 0 0% 100%;
+}
+
+/* Dark values are not fixed by the PRD; these are the working set until the
+   Phase 3 dark-mode pass. Text tokens keep at least 4.5:1 on --surface. */
+.dark {
+  --primary: 217 91% 60%;
+  --primary-hover: 213 94% 68%;
+  --primary-soft: 217 33% 20%;
+  --primary-foreground: 222 47% 11%;
+
+  --success: 142 69% 45%;
+  --success-text: 141 79% 66%;
+  --success-soft: 143 30% 16%;
+  --warning: 38 92% 50%;
+  --warning-text: 43 96% 66%;
+  --warning-soft: 30 40% 16%;
+  --danger: 0 84% 60%;
+  --danger-text: 0 91% 76%;
+  --danger-soft: 0 35% 18%;
+  --danger-foreground: 0 0% 100%;
+  --info-soft: 217 33% 20%;
+  --neutral-soft: 217 33% 20%;
+
+  --ink: 210 40% 98%;
+  --ink-muted: 214 32% 91%;
+  --ink-subtle: 215 20% 65%;
+  --line: 217 33% 24%;
+  --surface: 222 47% 11%;
+  --surface-alt: 217 33% 17%;
+  --surface-raised: 217 33% 17%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --primary: 217 91% 60%;
+    --primary-hover: 213 94% 68%;
+    --primary-soft: 217 33% 20%;
+    --primary-foreground: 222 47% 11%;
+
+    --success: 142 69% 45%;
+    --success-text: 141 79% 66%;
+    --success-soft: 143 30% 16%;
+    --warning: 38 92% 50%;
+    --warning-text: 43 96% 66%;
+    --warning-soft: 30 40% 16%;
+    --danger: 0 84% 60%;
+    --danger-text: 0 91% 76%;
+    --danger-soft: 0 35% 18%;
+    --info-soft: 217 33% 20%;
+    --neutral-soft: 217 33% 20%;
+
+    --ink: 210 40% 98%;
+    --ink-muted: 214 32% 91%;
+    --ink-subtle: 215 20% 65%;
+    --line: 217 33% 24%;
+    --surface: 222 47% 11%;
+    --surface-alt: 217 33% 17%;
+    --surface-raised: 217 33% 17%;
+  }
+}
+
+/* "inline" keeps the var() reference in the generated utility, so the .dark
+   block above and a per-tenant inline style both still work at runtime. */
+@theme inline {
+  --color-primary: hsl(var(--primary));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-primary-soft: hsl(var(--primary-soft));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-text: hsl(var(--success-text));
+  --color-success-soft: hsl(var(--success-soft));
+  --color-warning: hsl(var(--warning));
+  --color-warning-text: hsl(var(--warning-text));
+  --color-warning-soft: hsl(var(--warning-soft));
+  --color-danger: hsl(var(--danger));
+  --color-danger-text: hsl(var(--danger-text));
+  --color-danger-soft: hsl(var(--danger-soft));
+  --color-danger-foreground: hsl(var(--danger-foreground));
+  --color-info-soft: hsl(var(--info-soft));
+  --color-neutral-soft: hsl(var(--neutral-soft));
+
+  --color-ink: hsl(var(--ink));
+  --color-ink-muted: hsl(var(--ink-muted));
+  --color-ink-subtle: hsl(var(--ink-subtle));
+  --color-line: hsl(var(--line));
+  --color-surface: hsl(var(--surface));
+  --color-surface-alt: hsl(var(--surface-alt));
+  --color-surface-raised: hsl(var(--surface-raised));
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --text-display: 1.875rem;
+  --text-display--line-height: 2.25rem;
+  --text-display--font-weight: 600;
+  --text-h1: 1.5rem;
+  --text-h1--line-height: 2rem;
+  --text-h1--font-weight: 600;
+  --text-h2: 1.25rem;
+  --text-h2--line-height: 1.75rem;
+  --text-h2--font-weight: 600;
+  --text-h3: 1rem;
+  --text-h3--line-height: 1.5rem;
+  --text-h3--font-weight: 600;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.25rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1rem;
+  --text-label--font-weight: 500;
+  --text-amount: 1.125rem;
+  --text-amount--line-height: 1.5rem;
+  --text-amount--font-weight: 600;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: hsl(var(--surface));
+    color: hsl(var(--ink-muted));
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  /* One visible focus ring for the whole product. Never remove it per component. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+
+  /* Amount columns only line up when the digits are all the same width. */
+  table,
+  [data-tabular] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
