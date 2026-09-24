@@ -59,7 +59,8 @@ step "Prisma client"
 npx prisma generate --schema server/prisma/schema
 
 step "Database migration"
-if [ -z "$(ls -A server/prisma/migrations 2>/dev/null)" ]; then
+# Prisma keeps migrations beside the schema, which here is a folder: server/prisma/schema/.
+if [ -z "$(ls -A server/prisma/schema/migrations 2>/dev/null)" ]; then
   npx prisma migrate dev --schema server/prisma/schema --name init --skip-seed
 else
   npx prisma migrate deploy --schema server/prisma/schema

@@ -1,293 +1,290 @@
 # SETUP — get EduFlow running on this machine
 
-This is the first-day setup for the founder's own Windows 11 laptop. Follow the steps in order.
-Allow about one hour, or two hours if you choose the Docker route.
+This is the setup for the founder's own laptop. Every step on this page was run and checked on
+24 September 2026. Follow them in order. Allow about an hour the first time.
 
 You do not need to understand every line. You need the app to start.
 
-## What is already here (checked 24 September 2026)
+## What you need to know first
 
-| Thing | State | What it means for you |
+Windows 11 on this laptop has **Smart App Control** switched on. Smart App Control is a Windows
+feature that only allows signed, known programs to run. A modern JavaScript toolchain ships part
+of its work as small unsigned `.exe` and `.node` files, so Windows blocks them.
+
+| Blocked file | It belongs to | What it breaks on Windows |
 |---|---|---|
-| Windows 11 Home | Installed | Use Git Bash for the commands in this file |
-| Node.js 24.13.1 | Installed | Nothing to do |
-| npm 11.8.0 | Installed | Nothing to do |
-| Git Bash and PowerShell | Installed | Nothing to do |
-| PostgreSQL 18 | Running as a Windows service on port 5432 | The password is unknown, see step 4 |
-| `psql.exe` | Blocked by an Application Control policy | Never use `psql`. Use pgAdmin or Prisma |
-| Docker Desktop | Not installed | Optional. Only needed for route B in step 4 |
-| Redis | Not installed | Optional. Queues are switched off without it |
-| WSL 2 | Available | One way to run Redis, see step 5 |
+| `esbuild.exe` | Vitest, tsx | Tests and TypeScript scripts do not run |
+| `@next/swc-win32-x64-msvc` | The Next.js compiler | The web app does not build |
+| `@tailwindcss/oxide`, `lightningcss` | Tailwind CSS 4 | The stylesheets do not build |
+| `psql.exe` | The PostgreSQL command line | No command line access to the database |
 
-Two rules follow from this list, and the code already respects them:
+Prisma's engines are signed, so Prisma itself runs fine on Windows.
 
-1. The app starts, type-checks and builds **without a database connection**. It prints a clear
-   message instead of crashing.
-2. The app starts **without Redis**. Background queues are disabled and it says so once in the
-   log.
+Smart App Control has a one-way switch. Once it is off, Windows cannot turn it back on. So it was
+left alone.
 
-## Step 1 — Check your tools
+The decision: **development happens inside WSL 2.** WSL 2 (Windows Subsystem for Linux) runs a
+real Ubuntu Linux next to Windows and shares your `localhost`. This is not a workaround. EduFlow
+will run on a Linux server in production, so building it on Linux removes a whole class of
+"it worked on my machine" problems. Most professional teams work exactly this way.
 
-Open **Git Bash** in the project folder (`E:/mysaasschool`) and run:
+This is what is inside that Ubuntu now:
 
-```bash
-node -v      # must print v24.x
-npm -v       # must print 11.x
-git --version
+| Thing | Version | Note |
+|---|---|---|
+| Ubuntu | 26.04 LTS | systemd on, default user `mehdi`, sudo without a password |
+| Node.js | 24.21.0 | from NodeSource |
+| npm | 11.19.0 | |
+| PostgreSQL | 18.6 | role `eduflow`, databases `eduflow` and `eduflow_test` |
+| Redis | 8.0.5 | |
+| The repository | `~/eduflow` | inside Linux, not on `/mnt/e` |
+
+> **Note:** the canon says PostgreSQL 16 or newer. 18.6 is inside that rule.
+
+Keep the code in `~/eduflow`. A checkout under `/mnt/e` also works, but then every `node_modules`
+read crosses the bridge between Linux and Windows, and it is slow. The Windows copy at
+`E:/mysaasschool` stays where it is: you read the specs there, and the first script below is run
+from there once.
+
+## Step 1 — Install Ubuntu
+
+Open **PowerShell as administrator** on Windows and run:
+
+```text
+wsl --install -d Ubuntu --no-launch
 ```
 
-If `node -v` prints something older, install Node.js 24 LTS from <https://nodejs.org> and open a
-new terminal.
+`--no-launch` installs Ubuntu without starting it, so it does not ask you to invent a Linux user
+yet. The next script creates the user. Restart Windows if the installer asks for it.
 
-## Step 2 — Install the packages
+## Step 2 — Prepare Ubuntu
 
-Run this once, from the repository root. It installs all three workspaces at the same time.
+One script does the whole machine-level setup. Run it as the Linux root user, still from
+PowerShell:
 
-```bash
-npm install
+```text
+wsl -d Ubuntu -u root -- bash /mnt/e/mysaasschool/scripts/wsl-setup.sh
 ```
 
-Never run `npm install` inside `client/`, `server/` or `shared/`. That would create a second
-`package-lock.json`, and then your laptop and CI would install different versions.
+It is safe to run again. Every step checks before it changes anything. It ends by printing the two
+database URLs, the Redis URL and the Node version.
 
-## Step 3 — Create your `.env` file
+The script expects Node.js 24, PostgreSQL and Redis to be installed in Ubuntu already. If it stops
+with `pg_isready: command not found`, or `node` is missing, that install is the missing piece. Do
+not guess the install commands. Open Claude Code, show it the error, let it install them, then run
+this script again.
 
-```bash
-npm run setup
+## Step 3 — Restart WSL
+
+```text
+wsl --shutdown
 ```
 
-This copies `.env.example` to `.env` if you do not have one yet, creates the local folders the
-app needs, and prints the next commands. It never overwrites an existing `.env`.
+This closes Ubuntu completely. The next start reads the new `/etc/wsl.conf`, which switches
+systemd on and makes `mehdi` the default user. Skip this step and you are still root, and the
+services do not start by themselves.
 
-`.env` holds your passwords. It is in `.gitignore`. Never commit it, never paste it into a chat,
-never open it in a screen share.
+## Step 4 — Clone the repository inside Linux
 
-## Step 4 — Give the app a database
+Open Ubuntu:
 
-Choose **one** route. Route A is the cheapest and fastest if you can reset the password.
-Route C is the easiest if you do not want to fight with Windows today.
+```text
+wsl
+```
 
-### Route A — use the PostgreSQL 18 service that is already running
+You are now the user `mehdi`, in your Linux home folder. Clone the repository:
 
-The service listens on port 5432. Its `postgres` password is unknown, and `psql.exe` is blocked,
-so the password is reset through pgAdmin 4, which was installed together with PostgreSQL 18.
+```bash
+git clone https://github.com/mehdialam20002/eduflow.git ~/eduflow
+cd ~/eduflow
+```
 
-1. Press the Windows key, type **Services**, open it. Find **postgresql-x64-18**. Right-click it
-   and choose **Stop**.
-2. Open this file in Notepad, started **as administrator**:
-   `C:/Program Files/PostgreSQL/18/data/pg_hba.conf`
-3. Near the bottom, find the two lines that begin `host    all    all    127.0.0.1/32` and
-   `host    all    all    ::1/128`. Change the last word on both lines from `scram-sha-256` to
-   `trust`. Save the file.
-4. Back in Services, right-click **postgresql-x64-18** and choose **Start**.
-5. Open **pgAdmin 4** from the Start menu. It asks for a master password: that one belongs to
-   pgAdmin itself, so invent it and write it down. Expand **Servers** and click
-   **PostgreSQL 18**. It connects without asking for a password, because of the `trust` you set.
-6. Open **Tools, Query Tool** and run these two statements. Replace the password with one of your
-   own, using letters and digits only:
+GitHub asks you to sign in the first time.
 
-   ```sql
-   ALTER USER postgres WITH PASSWORD 'ChooseAStrongOne123';
-   CREATE DATABASE eduflow_dev;
-   ```
+## Step 5 — Bootstrap the project
 
-7. Undo step 3: put `scram-sha-256` back in `pg_hba.conf`, save, and restart the service in
-   Services. This closes the door again. Do not skip this step.
-8. Put these two lines in your `.env`:
+```bash
+bash ~/eduflow/scripts/wsl-bootstrap-project.sh
+```
 
-   ```env
-   DATABASE_URL=postgresql://postgres:ChooseAStrongOne123@localhost:5432/eduflow_dev?schema=public
-   DATABASE_ADMIN_URL=postgresql://postgres:ChooseAStrongOne123@localhost:5432/eduflow_dev?schema=public
-   ```
+This is the long one. It writes your `.env`, installs the packages, creates every table, seeds the
+data and runs all the gates. This is what it printed on 24 September 2026:
 
-If your password contains `@`, `:`, `/` or `#`, either choose a different password or write that
-character in percent form (`@` becomes `%40`). A raw `@` breaks the URL.
-
-### Route B — install Docker Desktop and use its PostgreSQL on port 5433
-
-Use this if you would rather not touch the Windows service. Docker needs about 4 GB of memory
-while it runs.
-
-1. Install Docker Desktop from <https://www.docker.com/products/docker-desktop/> and restart
-   Windows when it asks. It uses the WSL 2 you already have.
-2. Start the services from the repository root:
-
-   ```bash
-   docker compose up -d --wait
-   docker compose ps          # postgres and redis must say "healthy"
-   ```
-
-3. The compose file maps PostgreSQL to **port 5433**, because 5432 is taken by the installed
-   service. Put these lines in your `.env`. The user, password and database name are the defaults
-   at the top of `docker-compose.yml`, so check them there if a connection is refused:
-
-   ```env
-   DATABASE_URL=postgresql://eduflow:eduflow_local_pw@localhost:5433/eduflow_dev?schema=public
-   DATABASE_ADMIN_URL=postgresql://eduflow:eduflow_local_pw@localhost:5433/eduflow_dev?schema=public
-   REDIS_URL=redis://localhost:6379
-   ```
-
-Docker also gives you Mailpit, a fake inbox at <http://localhost:8025>, so password-reset mails
-land somewhere you can read them and never reach a real person.
-
-### Route C — use a free hosted PostgreSQL (Neon)
-
-Nothing to install. You need internet while you code.
-
-1. Create a free account at <https://neon.tech> and a project called `eduflow-dev`.
-2. On the project dashboard open **Connection string**. Choose the **direct** connection, not the
-   pooled one, because Prisma migrations need a direct connection.
-3. Copy it into `.env` exactly as Neon gives it, and use the same value for the admin URL:
-
-   ```env
-   DATABASE_URL=postgresql://USER:PASS@ep-name-12345.aws.neon.tech/eduflow?sslmode=require
-   DATABASE_ADMIN_URL=postgresql://USER:PASS@ep-name-12345.aws.neon.tech/eduflow?sslmode=require
-   ```
-
-   Your host and database name will differ. Keep the shape: user, password, host, database,
-   then `?sslmode=require`.
-
-Keep `?sslmode=require`. Neon refuses a connection without it. The free tier sleeps after five
-minutes of no traffic, so the first request each morning takes a few seconds.
-
-## Step 5 — Redis, only if you want background jobs today
-
-Redis runs the queues: invoice PDFs, WhatsApp messages, imports and reports. **In development it
-is optional.** If `REDIS_URL` is empty, the app starts, says "queues are disabled" once, and
-everything else works. You do not need Redis before Week 5.
-
-| Route | What goes in `.env` |
+| Step | Result |
 |---|---|
-| Skip it, today's choice | `REDIS_URL=` |
-| Docker, if you took route B | `REDIS_URL=redis://localhost:6379` |
-| Memurai on Windows | `REDIS_URL=redis://localhost:6379` |
-| WSL 2 | `REDIS_URL=redis://localhost:6379` |
-| Free hosted, Upstash | `REDIS_URL=rediss://default:PASS@HOST.upstash.io:6379` |
+| `npm install` | 398 packages |
+| Prisma migration `init` | applied, including `CREATE EXTENSION pg_trgm` |
+| Seed | 4 currencies, 4 countries, 4 plans, 269 permissions, 7 system roles, 696 role grants |
+| Seed | one demo organization: Bright Future Public School |
+| `npm run typecheck` | no errors |
+| `npm run lint` | 0 errors |
+| `npm test` | 44 tests pass: 25 shared, 9 server, 10 client |
+| `npm run build -w client` | 5 routes built |
 
-What each route needs:
+The last line it prints is `Everything is ready. Start both apps with: npm run dev`.
 
-- **Skip it.** Nothing to install. Leave the line empty or delete it.
-- **Docker.** `docker compose up -d --wait` already started Redis in step 4.
-- **Memurai.** Install Memurai Developer from <https://www.memurai.com>. It is a Redis-compatible
-  Windows service and starts by itself on port 6379.
-- **WSL 2.** Run `wsl --install -d Ubuntu` in PowerShell as administrator. Inside Ubuntu run
-  `sudo apt update`, then `sudo apt install redis-server`, then `sudo service redis-server start`.
-  WSL 2 shares `localhost` with Windows, so the URL stays the same.
-- **Upstash.** Create a free database at <https://upstash.com> and copy the URL it shows.
+## What the two scripts do
 
-The hosted URL starts with `rediss`, with two letters s. The second s means the connection is
-encrypted. Copying it as `redis` fails with a timeout.
+Nothing here is magic. This is every step, in order.
 
-## Step 6 — Check the machine
+`scripts/wsl-setup.sh` — run as root, once per machine:
+
+| It does this | Why |
+|---|---|
+| Starts PostgreSQL and Redis, then checks `pg_isready` and `redis-cli ping` | Nothing works until both answer |
+| Creates the database role `eduflow` with `CREATEDB` | The app gets its own login, not `postgres` |
+| Creates the databases `eduflow` and `eduflow_test` | Tests get a database they may wipe |
+| Creates the Linux user `mehdi` in the `sudo` group, sudo without a password | Daily work is not done as root |
+| Writes `/etc/wsl.conf`: systemd on, default user `mehdi`, Windows PATH off | The services survive a restart |
+| Runs `systemctl enable postgresql redis-server` | Both start at boot |
+| Prints the connection strings and the Node version | You copy them if you ever write `.env` by hand |
+
+`scripts/wsl-bootstrap-project.sh` — run as `mehdi`, inside `~/eduflow`:
+
+| It does this | Why |
+|---|---|
+| Starts PostgreSQL and Redis if they are down | The next steps need both |
+| Copies `.env.example` to `.env` if there is none | It never touches an existing `.env` |
+| Writes `DATABASE_URL`, `TEST_DATABASE_URL` and `REDIS_URL` | Your local connection strings |
+| Replaces sample secrets with random ones, once | Real JWT and encryption keys, never a sample |
+| Runs `npm install` | All three workspaces at once, from the root |
+| Runs `prisma generate` | Builds the typed database client |
+| Runs `migrate dev --name init` the first time, `migrate deploy` after | Creates or updates the tables |
+| Runs `npm run db:seed` | Reference data and the demo institute |
+| Runs `npm run typecheck`, `npm run lint` and `npm test` | You learn on setup day if something broke |
+| Runs `npm run build -w client` | Proves the Next.js build works here |
+
+There is a third script, `scripts/wsl-smoke-test.sh`. It starts the API and the web app, waits for
+`/api/v1/health`, `/api/v1/ready` and `/login`, prints the status codes and the last log lines,
+then stops both. Use it when you want a hands-off answer to "does it still run?".
+
+## Every day: open it, start it, stop it
 
 ```bash
-npm run doctor
-```
-
-This prints one line per check: the Node version, whether `.env` exists and which required keys
-are missing, whether PostgreSQL answers on the host and port in your `DATABASE_URL`, whether
-Redis answers, whether `node_modules` is there, and whether `docs/schema/` still matches
-`server/prisma/schema/`. Every failing line names the exact command that fixes it.
-
-Fix everything marked as required before you go on. A cross against Redis is fine.
-
-## Step 7 — Create the tables and the starting data
-
-```bash
-npm run db:migrate
-npm run db:seed
-```
-
-The first command creates every table from `server/prisma/schema/`. The very first run also
-writes the initial migration file, so commit that file afterwards. The second command inserts the
-plans, the permissions, the seven system roles, the reference countries and currencies, and one
-demo institute (Bright Future Public School) with a campus, a course, a batch and an admin user.
-
-The seed is safe to run again. It updates instead of duplicating.
-
-## Step 8 — Start it
-
-```bash
+wsl
+cd ~/eduflow
 npm run dev
 ```
 
-Two processes start in one terminal, each log line prefixed with its name. Stop both with
-`Ctrl+C`.
+Two processes start in one terminal, each log line prefixed with its name.
 
-| Open this | You should see |
+| Open this in your Windows browser | You should see |
 |---|---|
-| <http://localhost:3000> | The EduFlow landing page with a link to sign in |
-| <http://localhost:3000/login> | The login form |
-| <http://localhost:4000/api/v1/health> | `success: true` with an uptime number |
-| <http://localhost:4000/api/v1/ready> | `success: true` when the database answers |
-| <http://localhost:8025> | The Mailpit inbox, empty (route B only) |
+| <http://localhost:3000/login> | The sign-in form, tab title `Sign in \| EduFlow` |
+| <http://localhost:4000/api/v1/health> | `success: true` |
+| <http://localhost:4000/api/v1/ready> | `success: true`, with database, redis and queues all `up` |
 
-If `/api/v1/ready` returns 503 with the code `SERVICE_UNAVAILABLE`, the API is running but cannot
-reach the database. Go back to step 4, then run `npm run doctor`.
+WSL 2 shares `localhost` with Windows, so the same addresses work on both sides.
 
-## Step 9 — Set up the editor
+Stop both with `Ctrl+C`. Leave Ubuntu with `exit`. Nothing has to be shut down at night. If you
+want the memory back, run `wsl --shutdown` in PowerShell.
 
-Open the folder in VS Code. It offers the recommended extensions from `.vscode/extensions.json`.
-Accept them. Format-on-save with Prettier and ESLint auto-fix are already configured in
-`.vscode/settings.json`.
-
-Set Git Bash as the default terminal: `Ctrl+Shift+P`, "Terminal: Select Default Profile",
-then choose **Git Bash**.
-
-## The commands you will actually use
+The commands you will actually use, all from the repository root:
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | API and web app together |
-| `npm run dev:server` and `npm run dev:client` | One side alone |
-| `npm run dev:worker` | The background job worker (needs Redis) |
+| `npm run dev:server`, `npm run dev:client` | One side alone |
+| `npm run dev:worker` | The background job worker |
 | `npm run doctor` | Checks this machine and says what is broken |
-| `npm run lint` and `npm run lint:fix` | Code style |
-| `npm run typecheck` | TypeScript, no files written |
-| `npm run test` | All tests |
-| `npm run build` | Production build of all three workspaces |
-| `npm run db:migrate` | Apply schema changes. Add `-- --name add_x` to create one |
-| `npm run db:seed` | Reference data and the demo institute |
+| `npm run check` | Lint, typecheck and tests: your "may I merge?" button |
+| `npm run lint`, `npm run lint:fix` | Code style |
+| `npm run typecheck` | TypeScript only, writes nothing |
+| `npm test` | All tests, on Node's own test runner |
+| `npm run build -w client` | Production build of the web app. WSL only |
+| `npm run db:migrate` | Apply schema changes |
+| `npm run db:seed` | Reference data and the demo institute. Safe to run again |
 | `npm run db:studio` | A browser table viewer for the database |
 | `npm run db:reset` | Wipes the local database and rebuilds it. On purpose only |
-| `npm run check` | Lint, typecheck and tests in one go: your "may I merge?" button |
 | `npm run gen:constants` | Rebuilds `shared/src/generated/` from the specifications |
 | `npm run sync:schema` | Copies the live Prisma schema into `docs/schema/` |
 | `npm run check:schema-sync` | Fails if those two schemas differ |
 
-Before you call a task done, run `npm run check`. It is lint, typecheck and tests in one command
-and it stops at the first failure.
+To edit the code in VS Code:
 
-If npm ever says a script is missing, the name has moved. Two that change often: reset the local
-database with `npx prisma migrate reset --schema ./prisma/schema` from inside `server/`, and open
-the table viewer with `npx prisma studio --schema ./prisma/schema` from the same folder.
+1. Install VS Code on Windows, and the extension **WSL** published by Microsoft.
+2. In VS Code press `Ctrl+Shift+P` and run **WSL: Connect to WSL**.
+3. Choose **File, Open Folder**, type `/home/mehdi/eduflow`, and open it.
+
+The window title then ends with `[WSL: Ubuntu]`. Its terminal is the Ubuntu shell, so every
+command on this page works there. Do not open the project as an ordinary Windows folder through
+`\\wsl$`: the extensions then run on the Windows side and the blocked binaries come back.
+`/etc/wsl.conf` keeps the Windows PATH out of Ubuntu, so the `code .` shortcut may not exist. Use
+the menu.
+
+## Connection strings and the demo sign-in
+
+The bootstrap script already wrote these into `~/eduflow/.env`. They are printed here so you can
+check them, not so you retype them.
+
+```env
+DATABASE_URL=postgresql://eduflow:eduflow@127.0.0.1:5432/eduflow?schema=public
+TEST_DATABASE_URL=postgresql://eduflow:eduflow@127.0.0.1:5432/eduflow_test?schema=public
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+The seed creates one demo institute you can sign in to:
+
+| Field | Value |
+|---|---|
+| Organization | Bright Future Public School |
+| Email | rajesh@brightfuture.example |
+| Password | EduFlow@Local123 |
+
+> **Warning:** these are local development values only. The database password is `eduflow` because
+> that database lives inside your laptop and listens on `127.0.0.1`. Never reuse this password or
+> this login on a server. `.env` is in `.gitignore`: never commit it, never paste it into a chat,
+> never show it in a screen share.
+
+## What still works on Windows
+
+Windows is still useful. Claude Code, git, the specs in `docs/` and most of the toolchain run
+there. Only the web app's compiler is out of reach.
+
+| Task | Runs on Windows | Where to run it |
+|---|---|---|
+| Editing files, git, Claude Code | Yes | Either side |
+| `npm run typecheck` | Yes | Either side |
+| `npm run lint` | Yes | Either side |
+| `npm test`, on Node's test runner | Yes | Either side |
+| `npm run dev:server`, the API | Yes | Either side, if a database answers |
+| Prisma: generate, migrate, seed, studio | Yes | Either side, the engines are signed |
+| `npm run dev:client`, `npm run build -w client` | No | WSL only: SWC, oxide, lightningcss |
+| `psql` | No | Blocked. Use `npm run db:studio` |
+
+The simple rule: do everything in WSL. One machine, one set of results, no surprises.
 
 ## Troubleshooting
 
-| Message you see | What it means | What you do |
+| What you see | What it means | What you do |
 |---|---|---|
-| `EADDRINUSE :::4000` | An API is already running | `npx kill-port 4000` |
-| `Can't reach database server` | Postgres is down, or wrong port | Check Services, `npm run doctor` |
-| `password authentication failed` | Wrong password in `.env` | Redo step 4 route A, or use route C |
-| `P1000: Authentication failed` | Same, or `@` in the password | Use letters and digits only |
-| `public.organizations does not exist` | No migration was applied here | `npm run db:migrate` |
-| `permission denied for schema public` | The user does not own the schema | Make both database URLs equal |
-| `ECONNREFUSED 127.0.0.1:6379` | Redis is not running | Ignore it, or do step 5 |
-| The log says queues are disabled | No `REDIS_URL` is set | Normal. Only step 5 changes it |
-| `Environment validation failed` | `.env` misses required keys | Copy them from `.env.example` |
-| `psql: command not found` | `psql.exe` is blocked here | Use pgAdmin or `npm run db:studio` |
-| `docker: command not found` | Docker is not installed | Use route A or route C |
-| `npm ci` fails in CI | The lock file is out of date | `npm install`, then commit it |
-| CI: generated files out of date | A specification changed | `npm run gen:constants`, commit |
-| CI: `check:schema-sync` failed | The two schemas differ | `npm run sync:schema`, commit |
-| PowerShell blocks a script | The execution policy | Use Git Bash instead |
+| The API cannot reach the database after a Windows restart | The services did not start | `sudo service postgresql start`, then `sudo service redis-server start` |
+| `Failed to start the systemd user session for 'mehdi'` | A harmless WSL warning | Ignore it. The services and the commands still run |
+| `npm install` stops on a network error | This connection drops large parallel downloads | Run `npm install` again. The repository's `.npmrc` holds npm to 2 sockets with long retries |
+| A migration fails on a missing extension such as `pg_trgm` | The search indexes need that extension | It is declared in `server/prisma/schema/00-base.prisma`. Pull the latest `main`, then `npm run db:migrate` |
+| `ERR_MODULE_NOT_FOUND` for a file you can see | The import has no file extension | Node resolves real paths here. Write `./service.ts`, `./page.tsx` |
+| `npm run build -w client` fails on Windows | The native compilers are blocked | Run it inside WSL |
+| `/api/v1/ready` answers 503 `SERVICE_UNAVAILABLE` | The API runs, the database does not answer | Start the services, then `npm run doctor` |
+| `EADDRINUSE :::4000` | An API is already running | Close the other `npm run dev` terminal, or `wsl --shutdown` and start again |
+| `psql: command not found` on Windows | Blocked by Smart App Control | Work inside WSL, or use `npm run db:studio` |
+| The log says queues are disabled | `REDIS_URL` is empty | Set it to `redis://127.0.0.1:6379`, or carry on without queues |
 
-## When something is still wrong
+When something is still wrong:
 
-1. Run `npm run doctor` and read every line.
+1. Run `npm run doctor` and read every line. Each failing line names the command that fixes it.
 2. Run `git status`. An unexpected change often explains an unexpected error.
-3. Paste the failing command and the first thirty lines of its output into Claude Code. Thirty
+3. Run `bash ~/eduflow/scripts/wsl-smoke-test.sh` to see whether both apps answer at all.
+4. Paste the failing command and the first thirty lines of its output into Claude Code. Thirty
    lines, not three thousand.
-4. If the database is in a strange state and it holds only local data, run `npm run db:reset` and
-   then `npm run db:seed`. If that script is missing, run
-   `npx prisma migrate reset --schema ./prisma/schema` from inside `server/`.
+
+## The optional path: turn Smart App Control off
+
+You do not have to use WSL. Switching Smart App Control off lets the blocked binaries run, and
+then the client builds on Windows directly. Open **Windows Security**, then **App and browser
+control**, then **Smart App Control settings**, and set it to **Off**.
+
+> **Warning:** this is a one-way door. Windows cannot switch Smart App Control back on. The only
+> way back is to reset or reinstall Windows. You would also give up a real protection, to solve a
+> problem that WSL has already solved.
+
+The recommendation is simple: leave it on, work in WSL.

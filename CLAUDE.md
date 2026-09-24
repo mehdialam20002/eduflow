@@ -22,25 +22,43 @@ If a spec and the code disagree, or the spec is silent, stop and ask. Never gues
 ## Stack (fixed — ask before adding or swapping any library)
 
 - Client: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, TanStack Query,
-  React Hook Form + Zod 4.
+  React Hook Form + Zod 4. Fonts come from the system font stack, not `next/font`.
 - Server: Node.js 24, Express 5, TypeScript 5, Zod 4, Pino logs, OpenAPI docs.
 - Data: PostgreSQL 16+, Prisma 6.x, Redis 7 + BullMQ (optional in development).
 - Auth: JWT access token (15 min) + rotating refresh token (30 days, httpOnly cookie, stored
   hashed), OTP login for parents and students, bcrypt.
 - Integrations: AWS S3 pre-signed URLs, Razorpay, Stripe, WhatsApp Cloud API, MSG91, Amazon SES.
-- Tests: Vitest + Supertest (server), Playwright (end-to-end).
+- Tests: canon says Vitest + Supertest (server), Playwright (end-to-end). On this machine the
+  tests run on Node's built-in test runner (`node --test`) through a small Vitest-shaped harness
+  at `shared/src/testing/harness.ts`. Supertest and Playwright are unchanged. There is no Vitest
+  and no tsx in the repository.
 - Repo: npm workspaces monorepo with `client/`, `server/`, `shared/`.
 
-## Commands (run from the repo root)
+## Commands (run from the repo root, inside WSL)
 
-- First run on a new machine: `npm install`, then `npm run setup`, then `npm run doctor`
+Development happens inside WSL 2 (Ubuntu), not on Windows. Windows Smart App Control refuses
+unsigned binaries, which blocks the native modules the Next.js client build needs. The repository
+lives at `~/eduflow` inside Linux, not on `/mnt/e`: node_modules on the Windows drive is slow.
+PostgreSQL, Redis and Node all run inside Ubuntu.
+
+- First run, once, as root:
+  `wsl -d Ubuntu -u root -- bash /mnt/e/mysaasschool/scripts/wsl-setup.sh`
+- Then, as the normal user: `wsl -d Ubuntu -- bash ~/eduflow/scripts/wsl-bootstrap-project.sh`
+  (it writes `.env`, runs `npm install`, migrates, seeds, and runs every gate)
+- Daily: `wsl -d Ubuntu`, then `cd ~/eduflow`
 - Everything: `npm run dev` — API on <http://localhost:4000>, web on <http://localhost:3000>
-- One side: `npm run dev:server`, `npm run dev:client`, `npm run dev:worker`
+- One side: `npm run dev:server`, `npm run dev:client`, `npm run dev:worker` (all `node --watch`)
 - Quality gate before you say "done": `npm run check` (lint, typecheck, test)
 - One module's tests: `npm run test -w server -- src/modules/fees`
 - Database: `npm run db:migrate`, `npm run db:seed`, `npm run db:studio`
+- Client build (WSL only): `npm run build -w client`
+- Both apps really answer: `bash ~/eduflow/scripts/wsl-smoke-test.sh`
 - Keep specs and code in step: `npm run gen:constants`, `npm run sync:schema`
 - Health of this machine: `npm run doctor`
+
+Windows still runs `npm run typecheck`, `npm run lint`, `npm test`, the API server and Prisma.
+Only the client build needs WSL. If a WSL shell prints "Failed to start the systemd user session
+for 'mehdi'", ignore it: the services and the commands still work.
 
 Redis is optional in development. If `REDIS_URL` is unset the app starts and logs that queues
 are disabled. Never make a request path depend on Redis being present.
@@ -95,13 +113,18 @@ are disabled. Never make a request path depend on Redis being present.
 13. Logs: Pino only. Never log passwords, OTPs, tokens or full phone numbers.
 14. Tests: money code, auth code and permission checks always ship with tests. Every module has a
     tenant-isolation test: organization A never reads organization B. Never weaken, skip or delete
-    a test to make it pass.
+    a test to make it pass. Tests run on Node's test runner (`node --test`); a test file imports
+    `{ describe, it, expect, vi }` from `@eduflow/shared/testing`. Never import from `vitest`.
 15. Generated files: never edit `shared/src/generated/**` or `docs/schema/**` by hand. Change the
     source document and run `npm run gen:constants` or `npm run sync:schema`.
 16. Size: files under about 300 lines, functions under about 50 lines. No `any`. No commented-out
     code.
 17. Commits: Conventional Commits, for example `feat(fees): add invoice generation`. Branch names
     are `type/pNN-short-description`. Commit or push only when the founder asks.
+18. Imports: every relative import inside `shared/`, `server/` and `client/` carries its file
+    extension — `./service.ts`, `./StudentForm.tsx`. Node runs the TypeScript directly and
+    resolves real file paths, so an extensionless import fails at run time. Package imports
+    (`@eduflow/shared`) keep no extension.
 
 ## How to work with the founder
 

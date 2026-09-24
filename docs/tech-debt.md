@@ -22,6 +22,13 @@ holds work that is deliberately not done yet.
 | TD-003 | 24 Sep | Secret scan is grep, not a tool | No scanner chosen | Clever leaks slip past | Day 45 |
 | TD-004 | 24 Sep | `.gitignore` hides `.claude/` | Not this agent's file | Commands stay local | Day 1 |
 | TD-005 | 24 Sep | No Dockerfile, no deploy CI | Not needed yet | Deploy day gets longer | Day 40 |
+| TD-006 | 24 Sep | Vitest swapped for a `node --test` harness | `esbuild.exe` is unsigned | No coverage numbers, no mocking library | Day 51 |
+| TD-007 | 24 Sep | Dev servers and seed use plain Node, not tsx | tsx also ships esbuild | Slower restarts, no tsx flags | Keep |
+| TD-008 | 24 Sep | Relative imports carry `.ts` and `.tsx` | Node resolves real files | Server emit build needs a new flag | Day 40 |
+| TD-009 | 24 Sep | `next/font` dropped for system fonts | next/font needs the SWC binary | No brand typeface on the web app | Day 45 |
+| TD-010 | 24 Sep | React component tests deleted | No runner could render JSX | UI regressions caught by nobody | Day 51 |
+| TD-011 | 24 Sep | Client build only works inside WSL | Smart App Control blocks natives | One machine can build the web app | Day 40 |
+| TD-012 | 24 Sep | `.npmrc` caps npm at 2 sockets | Three installs died on the network | Every install is much slower | Day 45 |
 
 ## The entries in full
 
@@ -40,10 +47,10 @@ and delete the `setup-python` step from `.github/workflows/ci.yml`. About three 
 
 ### TD-002 — CI has no coverage gate and runs no end-to-end test
 
-The `test` job in `.github/workflows/ci.yml` runs `npm run test`, which is Vitest in each
-workspace. There is no coverage threshold, and `npm run test:e2e` is not called because Playwright
-is not set up yet. Both were left out because there is almost no module code to cover on Day 1,
-and a gate over an empty suite teaches nothing.
+The `test` job in `.github/workflows/ci.yml` runs `npm run test`, which is `node --test` in each
+workspace (see TD-006). There is no coverage threshold, and `npm run test:e2e` is not called
+because Playwright is not set up yet. Both were left out because there is almost no module
+code to cover on Day 1, and a gate over an empty suite teaches nothing.
 
 The cost: a fees or payments module can reach `main` with its money paths untested and nothing in
 CI objects. That is exactly the kind of gap that is discovered by a wrong receipt.
@@ -95,3 +102,115 @@ under time pressure, which is exactly when mistakes with secrets and migrations 
 The fix: follow `docs/blueprint/31-docker-and-ci-cd.md` around Day 40, well before the pilot on
 Day 45. Add the server Dockerfile, the `.dockerignore`, the image build step in the `build` job,
 and the staging deploy workflow. About one day.
+
+### TD-006 — tests run on Node's test runner, not Vitest
+
+Vitest ships `esbuild.exe`, which is unsigned. Smart App Control on the founder's Windows laptop
+refuses unsigned binaries, so Vitest could not start at all. Turning Smart App Control off is a
+one-way change, so the toolchain moved instead. Tests now run on Node 24's built-in runner
+(`node --test`) through a small Vitest-shaped harness at `shared/src/testing/harness.ts`. Test
+files import `{ describe, it, expect, vi }` from `@eduflow/shared/testing`. 44 tests pass this
+way: 25 shared, 9 server, 10 client.
+
+The cost: the harness is a hand-written copy of a few Vitest helpers. Anything it does not cover
+(snapshots, fake timers, module mocking, `vi.spyOn` on ES modules) simply is not there, and the
+next test that needs one of those has to grow the harness first. There is also no coverage report,
+so TD-002 cannot be closed with the current setup.
+
+The fix: at the testing block around Day 51, decide one of two things. Either keep the harness and
+use Node's own `--experimental-test-coverage` for the gate, or put Vitest back in CI only, where
+Linux runners have no Smart App Control. Either way the import line in every test file stays the
+same. About half a day.
+
+### TD-007 — dev servers use `node --watch` and the seed uses plain `node`
+
+`tsx` also bundles esbuild, so it is blocked for the same reason as Vitest. Node 24 runs
+TypeScript directly, so `npm run dev:server` is `node --watch src/server.ts` and `npm run db:seed`
+is plain `node prisma/seed.ts`. The `prisma.seed` key in `server/package.json` still says `tsx`,
+which only matters if someone runs `prisma db seed` instead of the npm script.
+
+The cost is small and real: `node --watch` restarts the whole process on every save instead of
+reloading, and it has none of tsx's path-mapping or loader options. Startup is a second or two
+slower than tsx would be.
+
+The fix: nothing, unless the watcher becomes annoying during the sprint. If it does, the change is
+to `--watch-path=src`. Also point the `prisma.seed` key at `node prisma/seed.ts` so both routes
+work. Ten minutes.
+
+### TD-008 — every relative import carries a `.ts` or `.tsx` extension
+
+Node resolves real file paths. When Node runs the TypeScript directly, `import './service'` finds
+nothing, so every relative import inside `shared/`, `server/` and `client/` now ends in `.ts` or
+`.tsx`, and `tsconfig.base.json` sets `allowImportingTsExtensions` with `noEmit`. Package imports
+such as `@eduflow/shared` are unchanged.
+
+The cost lands on the production build, not on development. `server/tsconfig.build.json` turns
+`noEmit` off to emit `dist/`, and no tsconfig in this repository sets
+`rewriteRelativeImportExtensions`. Until that flag is added, the emitted JavaScript would still
+point at `.ts` files, so `npm run build -w server` cannot be trusted yet. Nothing has needed it so
+far because development runs from source.
+
+The fix: add `"rewriteRelativeImportExtensions": true` to `server/tsconfig.build.json`, run
+`npm run build -w server`, and start `node dist/server.js` once to prove it. Do it with the Docker
+work on Day 40, before anything is packaged. About an hour.
+
+### TD-009 — `next/font` removed, the client uses the system font stack
+
+`next/font` needs the native SWC binary, which Smart App Control blocks on Windows. Rather than
+make the font choice depend on which machine is building, the layout now uses the operating
+system's own font stack. It downloads nothing, so the first paint is fast and there is no font
+request to a Google server.
+
+The cost: the web app looks like the machine it is opened on. There is no brand typeface, and the
+same screen is slightly different on Windows, macOS and Android. For a school ERP that is
+acceptable for a while, but it will not be acceptable in a screenshot on the sales page.
+
+The fix: once the design work starts, self-host one variable font file under `client/public/fonts`
+and load it with a plain `@font-face` rule in the global stylesheet. That needs no SWC binary and
+no `next/font`. Do it by Day 45, before the pilot sees the product. About two hours.
+
+### TD-010 — the React component tests were deleted
+
+The client had a few component tests. Nothing in the new toolchain can render JSX in a test: Node's
+test runner has no DOM, and the libraries that provide one pull in esbuild. They were removed
+rather than left failing.
+
+The cost is honest and not small: no test fails today if a form stops submitting, a validation
+message disappears or a button renders disabled. The client's 10 remaining tests cover plain
+functions only. Until Playwright exists, browser behaviour is checked by the founder's own eyes.
+
+The fix: prompt P-50 sets up Playwright for the critical flows around Day 51 (login, admission,
+fee collection, attendance). Cover the deleted component cases there, at the flow level, instead of
+bringing a component renderer back. This row closes with TD-002.
+
+### TD-011 — the client build only works inside WSL
+
+`@next/swc-win32-x64-msvc`, `@tailwindcss/oxide` and `lightningcss` are unsigned native modules,
+so Smart App Control blocks all three and `npm run build -w client` cannot run on Windows. Inside
+WSL 2 they are ordinary Linux builds and the build works: 5 routes, verified today. Windows still
+runs typecheck, lint, the Node test runner, the API server and Prisma.
+
+The cost: exactly one environment in the world can produce a web build, and it is a WSL instance on
+one laptop. If that instance breaks, releases stop until it is rebuilt. `scripts/wsl-setup.sh` and
+`scripts/wsl-bootstrap-project.sh` exist so the rebuild is a command, not a memory test, but they
+are not proof until they are run somewhere else.
+
+The fix: make GitHub Actions build the client on `ubuntu-latest` as part of the `build` job, with
+the Docker work on Day 40. Then the laptop is a convenience, not a dependency. About an hour on top
+of TD-005.
+
+### TD-012 — `.npmrc` holds this laptop's network settings
+
+The first `npm install` on Windows failed three times on a flaky connection. The repository now
+carries an `.npmrc` with `maxsockets=2`, ten retries and a 30-minute fetch timeout, which made the
+install complete.
+
+The cost: every machine that clones this repository inherits a throttle it does not need. Two
+sockets instead of the default 15 makes a clean install several minutes slower, and a 30-minute
+timeout means a genuinely dead network hangs for half an hour before it reports the failure. CI
+pays that cost on every run.
+
+The fix: on a stable connection, drop `maxsockets` and `fetch-timeout`, keep the retries, and run
+one clean install (`rm -rf node_modules package-lock.json` is not needed; `npm ci` is enough) to
+prove it. If the network is the laptop's problem and not the project's, move the file to
+`~/.npmrc` instead. Do it by Day 45. Twenty minutes.
