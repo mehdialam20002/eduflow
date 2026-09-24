@@ -4,9 +4,7 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
-  "editor.rulers": [
-    100
-  ],
+  "editor.rulers": [100],
   "editor.tabSize": 2,
   "files.eol": "\n",
   "files.insertFinalNewline": true,
@@ -41,11 +39,7 @@
     "typescript": "javascript",
     "typescriptreact": "javascript"
   },
-  "tailwindCSS.classAttributes": [
-    "class",
-    "className",
-    "classList"
-  ],
+  "tailwindCSS.classAttributes": ["class", "className", "classList"],
   "terminal.integrated.defaultProfile.windows": "Git Bash",
   "search.exclude": {
     "**/node_modules": true,
@@ -59,8 +53,7 @@
     "**/.next/**": true,
     "**/dist/**": true
   },
-  "git.branchProtection": [
-    "main"
-  ],
-  "git.inputValidationSubjectLength": 72
+  "git.branchProtection": ["main"],
+  "git.inputValidationSubjectLength": 72,
+  "prisma.pinToPrisma6": true
 }
