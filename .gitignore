@@ -1,4 +1,4 @@
-# Build tooling dependencies
+﻿# Build tooling dependencies
 docs/build/node_modules/
 
 # Build output: HTML, intermediate PDFs, rendered page images
@@ -12,6 +12,7 @@ docs/out/
 # Local and editor files
 .env
 .env.*
+!.env.example
 *.log
 .DS_Store
 Thumbs.db
