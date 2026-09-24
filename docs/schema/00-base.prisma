@@ -3,12 +3,16 @@
 // Domain-specific enums live in their own domain file.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Lets the datasource declare pg_trgm below, so migrations create it themselves.
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // pg_trgm backs the "search as you type" indexes on students, staff and guardians.
+  extensions = [pg_trgm]
 }
 
 // Kind of institution; drives UI labels (Class/Section vs Program/Batch).
